@@ -8,6 +8,9 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+    <!-- Firebase para salvar os dados de forma compartilhada -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -29,29 +32,130 @@
         .kanban-card { cursor: grab; }
         .kanban-card:active { cursor: grabbing; }
         .dragging { opacity: 0.5; }
+
+
+        /* Layout refinado */
+        :root {
+            --brand: #0ea5e9;
+            --brand-dark: #0369a1;
+            --surface: #ffffff;
+            --muted: #64748b;
+        }
+        body {
+            background: radial-gradient(circle at top left, #e0f2fe 0, #f8fafc 34%, #eef2ff 100%);
+            min-height: 100vh;
+        }
+        #app-container { max-width: 1440px; }
+        .app-hero {
+            background: linear-gradient(135deg, #0f172a 0%, #075985 55%, #0ea5e9 100%);
+            color: white;
+            border-radius: 1.5rem;
+            padding: 1.75rem;
+            box-shadow: 0 24px 60px rgba(15, 23, 42, 0.18);
+            position: relative;
+            overflow: hidden;
+        }
+        .app-hero::after {
+            content: "";
+            position: absolute;
+            width: 220px;
+            height: 220px;
+            border-radius: 999px;
+            background: rgba(255,255,255,.12);
+            right: -70px;
+            top: -80px;
+        }
+        .app-hero h1 { color: white; }
+        .app-hero p { color: rgba(255,255,255,.78); }
+        .control-panel, .section-card, #goals-panel > div, .bg-white.rounded-2xl.shadow-md {
+            border: 1px solid rgba(226, 232, 240, .9);
+            box-shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
+        }
+        .control-panel {
+            backdrop-filter: blur(10px);
+        }
+        nav {
+            position: sticky;
+            top: 0.75rem;
+            z-index: 30;
+            border: 1px solid rgba(226, 232, 240, .85);
+            overflow: hidden;
+        }
+        .nav-item {
+            min-width: 145px;
+            border-radius: 0;
+        }
+        .nav-item:hover {
+            background: #f0f9ff;
+            color: #0369a1;
+        }
+        .nav-item.active {
+            background: linear-gradient(180deg, #f0f9ff 0%, #ffffff 100%);
+            font-weight: 800;
+        }
+        button, select, input, textarea { outline-offset: 2px; }
+        button { box-shadow: none; }
+        button:hover { transform: translateY(-1px); }
+        .metric-card {
+            background: white;
+            border-radius: 1.25rem;
+            padding: 1.25rem;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 14px 35px rgba(15, 23, 42, 0.07);
+        }
+        .metric-label {
+            color: #64748b;
+            font-size: .78rem;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+            font-weight: 800;
+        }
+        .metric-value {
+            color: #0f172a;
+            font-size: 2rem;
+            line-height: 1.1;
+            font-weight: 900;
+            margin-top: .35rem;
+        }
+        .metric-note { color: #64748b; font-size: .86rem; margin-top: .35rem; }
+        table { border-collapse: separate; border-spacing: 0; }
+        thead th { position: sticky; top: 0; z-index: 5; }
+        tbody tr:hover { background: #f8fafc; }
+        td, th { vertical-align: middle; }
+        .status-btn { min-height: 34px; }
+        .chart-container { height: 360px; }
+        @media (max-width: 768px) {
+            #app-container { padding: 1rem; }
+            .app-hero { padding: 1.25rem; border-radius: 1.25rem; text-align: left; }
+            .app-hero h1 { font-size: 1.65rem; line-height: 1.15; }
+            nav { position: relative; top: 0; overflow-x: auto; flex-wrap: nowrap !important; border-radius: 1rem; }
+            .nav-item { flex: 0 0 auto !important; padding: .85rem 1rem; font-size: .85rem; }
+            .nav-item svg { width: 1rem; height: 1rem; }
+            .chart-container { height: 280px; }
+            table { min-width: 760px; }
+            .metric-value { font-size: 1.6rem; }
+        }
+
     </style>
 </head>
 <body class="text-slate-800">
 
-    <!-- Password Modal -->
-    <div id="password-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-200">
-        <div class="bg-white rounded-2xl shadow-2xl p-8 w-11/12 max-w-sm text-center">
-            <h2 class="text-2xl font-bold mb-4 text-slate-900">Acesso Restrito</h2>
-            <p class="text-slate-600 mb-6">Por favor, insira a senha para continuar.</p>
-            <div class="space-y-4">
-                <input type="password" id="password-input" class="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-sky-500 focus:border-sky-500 block w-full p-2.5 text-center" placeholder="******">
-                <p id="password-error" class="text-red-500 text-sm h-4"></p>
-                <button id="password-submit-btn" class="w-full bg-sky-500 hover:bg-sky-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">Entrar</button>
+<div id="app-container" class="container mx-auto p-4 sm:p-6 lg:p-8">
+        <header class="app-hero mb-6">
+            <div class="relative z-10 flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
+                <div>
+                    <p class="text-sm font-semibold uppercase tracking-[0.22em] mb-2">Painel de Marketing</p>
+                    <h1 class="text-3xl md:text-4xl font-bold">Controle de Conteúdo - Redes Sociais</h1>
+                    <p class="mt-3 max-w-2xl">Acompanhe cronograma, execução, avaliação e desempenho das lojas em um só lugar.</p>
+                </div>
+                <div class="bg-white/15 rounded-2xl px-4 py-3 text-sm backdrop-blur-sm border border-white/20">
+                    <span class="font-semibold">Visão do ciclo</span><br>
+                    <span class="text-white/80">Posts, métricas e pendências organizadas</span>
+                </div>
             </div>
-        </div>
-    </div>
-
-    <div id="app-container" class="container mx-auto p-4 sm:p-6 lg:p-8 hidden">
-        <header class="text-center mb-6">
-            <h1 class="text-3xl md:text-4xl font-bold text-slate-900">Controle de Conteúdo - Redes Sociais</h1>
         </header>
 
-        <div class="mb-6 p-4 bg-white rounded-2xl shadow-md flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div class="control-panel mb-6 p-4 bg-white/90 rounded-2xl shadow-md flex flex-col sm:flex-row items-center justify-between gap-4">
             <div class="flex items-center gap-3">
                 <label for="cycle-select" class="font-semibold text-slate-700">Ciclo:</label>
                 <select id="cycle-select" class="block w-full sm:w-auto bg-slate-50 border border-slate-300 text-slate-900 rounded-lg focus:ring-sky-500 focus:border-sky-500 p-2.5"></select>
@@ -180,6 +284,33 @@
     <script>
         // Full App Logic
         (function() {
+            // =====================================================
+            // CONFIGURAÇÃO DO FIREBASE
+            // Troque os textos abaixo pelos dados do seu Firebase:
+            // Firebase > Configurações do projeto > Geral > Seus apps
+            // =====================================================
+            const firebaseConfig = {
+  apiKey: "AIzaSyAo_FfnX-rknFYpi_kbBmJunB4w7xycgyU",
+  authDomain: "cronograma-de-postagem.firebaseapp.com",
+  projectId: "cronograma-de-postagem",
+  storageBucket: "cronograma-de-postagem.firebasestorage.app",
+  messagingSenderId: "333546459409",
+  appId: "1:333546459409:web:118be456072176632c3cb0",
+  measurementId: "G-GF1W3DHC3T"
+};
+
+            const firebaseConfigurado = !firebaseConfig.apiKey.includes("COLE_AQUI");
+            let firestoreDB = null;
+
+            if (firebaseConfigurado && window.firebase) {
+                try {
+                    firebase.initializeApp(firebaseConfig);
+                    firestoreDB = firebase.firestore();
+                } catch (error) {
+                    console.error("Erro ao iniciar Firebase:", error);
+                }
+            }
+
             function debounce(func, wait) {
                 let timeout;
                 return function executedFunction(...args) {
@@ -231,11 +362,13 @@
                 currentEngagementTarget: null,
                 currentQualityTarget: null,
                 draggedIdea: null,
+                firebaseDocRef: null,
+                unsubscribeFirebase: null,
+                saveDebounceTimer: null,
 
                 init() {
-                    this.loadDataFromLocalStorage();
                     this.bindEvents();
-                    this.render();
+                    this.loadDataFromLocalStorage();
                     window.addEventListener('resize', debounce(() => {
                         if (this.data.currentView === 'dashboard') this.renderDashboard();
                     }, 250));
@@ -319,31 +452,58 @@
                 },
                 
                 loadDataFromLocalStorage() {
+                    // Se o Firebase estiver configurado, todos os usuários verão os mesmos dados.
+                    // Se ainda não estiver configurado, o app continua funcionando em modo local para visualização/teste.
+                    if (firestoreDB) {
+                        this.firebaseDocRef = firestoreDB.collection('socialMediaControl').doc('mainData');
+
+                        this.unsubscribeFirebase = this.firebaseDocRef.onSnapshot((doc) => {
+                            if (doc.exists && doc.data().appData) {
+                                this.data = doc.data().appData;
+                                this.migrateData(false);
+                            } else {
+                                this.loadDefaultData();
+                                this.saveDataToLocalStorage();
+                            }
+                            this.render();
+                        }, (error) => {
+                            console.error("Erro ao carregar dados do Firebase. Usando modo local:", error);
+                            this.loadLocalBackup();
+                            this.render();
+                        });
+                    } else {
+                        this.loadLocalBackup();
+                        this.render();
+                    }
+                },
+
+                loadLocalBackup() {
                     try {
                         if (typeof __preloadedData !== 'undefined' && __preloadedData) {
                             this.data = __preloadedData;
-                            this.migrateData();
+                            this.migrateData(false);
                             return;
                         }
+
                         const savedData = localStorage.getItem('socialMediaControlData');
                         if (savedData) {
                             const parsedData = JSON.parse(savedData);
                             if (parsedData && parsedData.cycles) {
-                                 this.data = parsedData;
-                                 this.migrateData();
+                                this.data = parsedData;
+                                this.migrateData(false);
                             } else {
-                                 this.loadDefaultData();
+                                this.loadDefaultData();
                             }
                         } else {
                             this.loadDefaultData();
                         }
                     } catch (e) {
-                        console.error("Error loading data from localStorage", e);
+                        console.error("Erro ao carregar dados locais", e);
                         this.loadDefaultData();
                     }
                 },
                 
-                migrateData() {
+                migrateData(shouldSave = true) {
                     // This function ensures old data structures are updated to new ones.
                     this.data.cycles.forEach(cycle => {
                         if (cycle.completionData) {
@@ -363,15 +523,27 @@
                             cycle.performanceGoal = 5000;
                         }
                     });
-                    this.saveDataToLocalStorage();
+                    if (shouldSave) this.saveDataToLocalStorage();
                 },
 
                 saveDataToLocalStorage() {
-                    try {
-                        localStorage.setItem('socialMediaControlData', JSON.stringify(this.data));
-                    } catch (e) {
-                        console.error("Error saving data to localStorage", e);
-                    }
+                    clearTimeout(this.saveDebounceTimer);
+                    this.saveDebounceTimer = setTimeout(() => {
+                        try {
+                            // Mantém uma cópia local de segurança.
+                            localStorage.setItem('socialMediaControlData', JSON.stringify(this.data));
+
+                            // Salva no Firebase para todas as pessoas que acessam o site.
+                            if (this.firebaseDocRef) {
+                                this.firebaseDocRef.set({
+                                    appData: this.data,
+                                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                                }, { merge: true });
+                            }
+                        } catch (e) {
+                            console.error("Erro ao salvar dados", e);
+                        }
+                    }, 250);
                 },
 
                 calculatePerformanceData(cycle) {
@@ -505,12 +677,16 @@
                     const missingMetrics = {};
                     const missingQuality = {};
                     let totalEngagement = 0, totalQualitySum = 0, totalQualityTasks = 0;
+                    let completedCount = 0, pendingCount = 0, notDoneCount = 0;
 
                     cycle.cities.forEach((city, cityIndex) => {
                         cycle.tasks.forEach((task, taskIndex) => {
                             const key = `${taskIndex}-${cityIndex}`;
                             const data = cycle.completionData[key];
                             const status = data?.status || 'pending';
+                            if (status === 'done') completedCount++;
+                            if (status === 'pending') pendingCount++;
+                            if (status === 'not_done') notDoneCount++;
                             
                             if (status === 'done') {
                                 if (!data.engagement || (data.engagement.likes === 0 && data.engagement.comments === 0 && data.engagement.shares === 0)) {
@@ -577,8 +753,34 @@
                         alertsHTML += `</div>`;
                     }
 
+                    const totalPlannedPosts = cycle.tasks.length * cycle.cities.length;
+                    const completionPercent = totalPlannedPosts > 0 ? Math.round((completedCount / totalPlannedPosts) * 100) : 0;
+
                     let content = `
                         <div id="alerts-panel" class="mb-6">${alertsHTML}</div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+                            <div class="metric-card">
+                                <div class="metric-label">Posts planejados</div>
+                                <div class="metric-value">${totalPlannedPosts}</div>
+                                <div class="metric-note">${cycle.tasks.length} tarefas x ${cycle.cities.length} lojas</div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-label">Concluídos</div>
+                                <div class="metric-value text-green-600">${completedCount}</div>
+                                <div class="metric-note">${completionPercent}% do cronograma</div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-label">Pendentes</div>
+                                <div class="metric-value text-amber-600">${pendingCount}</div>
+                                <div class="metric-note">Acompanhar execução</div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-label">Não feitos</div>
+                                <div class="metric-value text-red-600">${notDoneCount}</div>
+                                <div class="metric-note">Entram no relatório final</div>
+                            </div>
+                        </div>
 
                         <div id="goals-panel" class="mb-6 grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div class="bg-white p-6 rounded-2xl shadow-md">
@@ -678,24 +880,24 @@
                     const categoryColors = { 'Obrigatória': 'border-red-500', 'Autoral': 'border-blue-500', 'Estratégica': 'border-yellow-500' };
                     
                     let containerHTML = `
-                        <div class="bg-white p-4 rounded-t-2xl shadow-md flex items-center gap-3">
+                        <div class="bg-white p-4 rounded-2xl shadow-md flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
                            <label for="store-filter" class="font-semibold text-slate-700">Filtrar por Loja:</label>
                            <select id="store-filter" class="block w-full sm:w-auto bg-slate-50 border border-slate-300 text-slate-900 rounded-lg focus:ring-sky-500 focus:border-sky-500 p-2.5">
                                 <option value="-1">Todas as Lojas</option>
                                 ${cycle.cities.map((city, index) => `<option value="${index}" ${this.data.cronogramaFilterStoreIndex === index ? 'selected' : ''}>${city.name}</option>`).join('')}
                            </select>
                         </div>
-                        <div class="space-y-8 mt-[-1px]">`; // Negative margin to connect filter bar
+                        <div class="space-y-6">`;
                     
                     categories.forEach(category => {
                         const tasksForCategory = cycle.tasks.map((task, index) => ({...task, originalIndex: index})).filter(task => task.category === category);
                         if (tasksForCategory.length === 0) return;
 
                         containerHTML += `
-                            <div class="bg-white rounded-b-2xl shadow-md p-6">
+                            <div class="bg-white rounded-2xl shadow-md p-6">
                                 <h3 class="text-xl font-bold mb-4 text-slate-800 border-l-4 ${categoryColors[category]} pl-3">${category}</h3>
                                 <div class="overflow-x-auto">
-                                    <table class="w-full text-sm text-left text-slate-600">
+                                    <table class="w-full text-sm text-left text-slate-600 rounded-xl overflow-hidden">
                                         <thead class="text-xs text-slate-700 uppercase bg-slate-100">
                                             <tr>
                                                 <th class="px-4 py-3 rounded-l-lg w-24">Data</th>
@@ -1625,17 +1827,6 @@
                     
                     let scriptContent = scriptTag.innerHTML;
 
-                    const passwordLogicRegex = /\/\/ --- Password Protection Logic ---[\s\S]*\)\(\);/;
-                    
-                    if (passwordLogicRegex.test(scriptContent)) {
-                        scriptContent = scriptContent.replace(passwordLogicRegex, `
-            app.init();
-        })();`);
-                    } else {
-                        alert("Erro ao tentar remover a proteção por senha do arquivo exportado.");
-                        return;
-                    }
-
                     scriptTag.innerHTML = preloadedDataScript + scriptContent;
 
                     const fullHtml = '<!DOCTYPE html>\n' + docClone.outerHTML;
@@ -1800,38 +1991,8 @@
                 }
             };
 
-            // --- Password Protection Logic ---
-            const passwordModal = document.getElementById('password-modal');
-            const passwordInput = document.getElementById('password-input');
-            const passwordSubmitBtn = document.getElementById('password-submit-btn');
-            const passwordError = document.getElementById('password-error');
-            const appContainer = document.getElementById('app-container');
-
-            const correctPassword = 'gabi2002';
-
-            function checkPassword() {
-                if (passwordInput.value === correctPassword) {
-                    passwordModal.classList.add('hidden');
-                    appContainer.classList.remove('hidden');
-                    // Inicia a aplicação principal
-                    app.init();
-                } else {
-                    passwordError.textContent = 'Senha incorreta. Tente novamente.';
-                    passwordInput.value = '';
-                    passwordInput.focus();
-                }
-            }
-
-            passwordSubmitBtn.addEventListener('click', checkPassword);
-            passwordInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    checkPassword();
-                }
-            });
-            
-            passwordInput.focus();
+            app.init();
         })();
     </script>
 </body>
 </html>
-
