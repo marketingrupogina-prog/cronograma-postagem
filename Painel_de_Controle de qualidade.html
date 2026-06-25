@@ -1,0 +1,1837 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Controle de Conteúdo - Redes Sociais</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; }
+        .chart-container { position: relative; width: 100%; height: 400px; max-height: 60vh; }
+        .modal-backdrop { background-color: rgba(0, 0, 0, 0.5); }
+        .nav-item { transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 0.5rem; }
+        .nav-item svg { width: 1.25rem; height: 1.25rem; }
+        .nav-item.active { border-bottom-color: #0ea5e9; color: #0284c7; }
+        .star-rating span { cursor: pointer; font-size: 1.5rem; color: #cbd5e1; transition: color 0.2s; }
+        .star-rating:hover span { color: #fcd34d; }
+        .star-rating span:hover ~ span { color: #cbd5e1; }
+        .star-rating span.active { color: #f59e0b; }
+        .store-selector-btn.active { background-color: #0ea5e9; color: white; }
+        .tooltip { visibility: hidden; opacity: 0; transition: opacity 0.3s; }
+        .has-tooltip:hover .tooltip { visibility: visible; opacity: 1; }
+        .kanban-column { min-height: 200px; }
+        .kanban-card { cursor: grab; }
+        .kanban-card:active { cursor: grabbing; }
+        .dragging { opacity: 0.5; }
+    </style>
+</head>
+<body class="text-slate-800">
+
+    <!-- Password Modal -->
+    <div id="password-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-200">
+        <div class="bg-white rounded-2xl shadow-2xl p-8 w-11/12 max-w-sm text-center">
+            <h2 class="text-2xl font-bold mb-4 text-slate-900">Acesso Restrito</h2>
+            <p class="text-slate-600 mb-6">Por favor, insira a senha para continuar.</p>
+            <div class="space-y-4">
+                <input type="password" id="password-input" class="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-sky-500 focus:border-sky-500 block w-full p-2.5 text-center" placeholder="******">
+                <p id="password-error" class="text-red-500 text-sm h-4"></p>
+                <button id="password-submit-btn" class="w-full bg-sky-500 hover:bg-sky-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">Entrar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="app-container" class="container mx-auto p-4 sm:p-6 lg:p-8 hidden">
+        <header class="text-center mb-6">
+            <h1 class="text-3xl md:text-4xl font-bold text-slate-900">Controle de Conteúdo - Redes Sociais</h1>
+        </header>
+
+        <div class="mb-6 p-4 bg-white rounded-2xl shadow-md flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <label for="cycle-select" class="font-semibold text-slate-700">Ciclo:</label>
+                <select id="cycle-select" class="block w-full sm:w-auto bg-slate-50 border border-slate-300 text-slate-900 rounded-lg focus:ring-sky-500 focus:border-sky-500 p-2.5"></select>
+            </div>
+            <div class="flex gap-2">
+                <button id="manage-cycle-btn" class="bg-sky-500 hover:bg-sky-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">Gerenciar Ciclos</button>
+                <button id="add-cycle-btn" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">+</button>
+            </div>
+        </div>
+
+        <nav class="flex flex-wrap border-b-2 border-slate-200 mb-6 bg-white rounded-t-lg shadow-md">
+            <button data-view="dashboard" class="nav-item flex-1 py-4 px-6 font-semibold text-slate-600 border-b-4 border-transparent"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20V16"/></svg>Dashboard</button>
+            <button data-view="cronograma" class="nav-item flex-1 py-4 px-6 font-semibold text-slate-600 border-b-4 border-transparent"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>Cronograma</button>
+            <button data-view="calendario" class="nav-item flex-1 py-4 px-6 font-semibold text-slate-600 border-b-4 border-transparent"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Calendário</button>
+            <button data-view="avaliacao-central" class="nav-item flex-1 py-4 px-6 font-semibold text-slate-600 border-b-4 border-transparent"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="m9 12 2 2 4-4"/></svg>Avaliação Central</button>
+            <button data-view="report" class="nav-item flex-1 py-4 px-6 font-semibold text-slate-600 border-b-4 border-transparent"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 16.1A5 5 0 0 1 5.9 20M2 12.05A9 9 0 0 1 9.95 20M2 8V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6"/><path d="M16 16l6-6-4-4-6 6v4h4z"/></svg>Relatório</button>
+            <button data-view="ideias" class="nav-item flex-1 py-4 px-6 font-semibold text-slate-600 border-b-4 border-transparent"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.5 2H8.6c-.4 0-.8.2-1.1.5-.3.3-.5.7-.5 1.1V14L11 10.5 15.5 14V2z"/><path d="M21.4 22H6.5c-2 0-3.5-1.5-3.5-3.5V6.52"/><path d="M20 10.5c.9-.4 1.5-1.5 1.5-2.5A3.5 3.5 0 0 0 18 4.5c-.3 0-.5.1-.8.1"/></svg>Ideias</button>
+        </nav>
+
+        <main id="view-container">
+            <!-- Views will be rendered here -->
+        </main>
+    </div>
+
+    <!-- Modals (Management, Engagement) -->
+    <div id="manage-modal" class="fixed inset-0 z-50 flex items-center justify-center modal-backdrop hidden">
+        <div class="bg-white rounded-2xl shadow-2xl p-6 w-11/12 max-w-3xl max-h-[90vh] overflow-y-auto">
+            <h2 class="text-2xl font-bold mb-4 text-slate-900">Gerenciar Ciclo</h2>
+            <div class="space-y-4">
+                <div>
+                    <label for="cycle-name-input" class="block mb-2 text-sm font-medium text-slate-900">Nome do Ciclo</label>
+                    <input type="text" id="cycle-name-input" class="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-sky-500 focus:border-sky-500 block w-full p-2.5">
+                </div>
+                <div>
+                    <label for="cities-input" class="block mb-2 text-sm font-medium text-slate-900">Lojas (formato: Nome da Loja, Seguidores)</label>
+                    <textarea id="cities-input" rows="4" class="block p-2.5 w-full text-sm text-slate-900 bg-slate-50 rounded-lg border border-slate-300 focus:ring-sky-500 focus:border-sky-500" placeholder="Ex: Três Pontas, 8500"></textarea>
+                </div>
+                <div>
+                    <label for="tasks-input" class="block mb-2 text-sm font-medium text-slate-900">Tarefas (formato: DD/MM, Categoria, Descrição)</label>
+                    <textarea id="tasks-input" rows="8" class="block p-2.5 w-full text-sm text-slate-900 bg-slate-50 rounded-lg border border-slate-300 focus:ring-sky-500 focus:border-sky-500" placeholder="Ex: 20/08, Obrigatória, Post sobre o produto X"></textarea>
+                    <p class="text-xs text-slate-500 mt-1">Categorias válidas: Obrigatória, Autoral, Estratégica</p>
+                </div>
+                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t">
+                    <div>
+                        <label for="engagement-goal-input" class="block mb-2 text-sm font-medium text-slate-900">Meta de Engajamento <span id="engagement-goal-suggestion" class="text-xs font-normal text-sky-600"></span></label>
+                        <input type="number" id="engagement-goal-input" class="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-sky-500 focus:border-sky-500 block w-full p-2.5" placeholder="Ex: 20000">
+                    </div>
+                    <div>
+                        <label for="quality-goal-input" class="block mb-2 text-sm font-medium text-slate-900">Meta de Qualidade Média <span id="quality-goal-suggestion" class="text-xs font-normal text-sky-600"></span></label>
+                        <input type="number" step="0.1" id="quality-goal-input" class="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-sky-500 focus:border-sky-500 block w-full p-2.5" placeholder="Ex: 4.5">
+                    </div>
+                    <div>
+                        <label for="performance-goal-input" class="block mb-2 text-sm font-medium text-slate-900">Meta de Desempenho <span id="performance-goal-suggestion" class="text-xs font-normal text-sky-600"></span></label>
+                        <input type="number" id="performance-goal-input" class="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-sky-500 focus:border-sky-500 block w-full p-2.5" placeholder="Ex: 5000">
+                    </div>
+                </div>
+                <div class="mt-6 border-t pt-4">
+                    <h3 class="text-lg font-semibold text-slate-800">Backup e Restauração</h3>
+                    <p class="text-sm text-slate-600 mb-4">Salve os dados em um arquivo ou salve o painel inteiro como uma página HTML offline.</p>
+                    <div class="flex flex-wrap gap-4">
+                        <button id="export-data-btn" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg">Exportar Dados (.json)</button>
+                        <button onclick="document.getElementById('import-file-input').click()" class="bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded-lg">Importar Dados (.json)</button>
+                        <input type="file" id="import-file-input" class="hidden" accept=".json">
+                        <button id="export-html-btn" class="bg-teal-500 hover:bg-teal-600 text-white font-bold py-2 px-4 rounded-lg">Salvar como HTML</button>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-6 flex justify-between items-center">
+                <button id="delete-cycle-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg">Excluir Ciclo</button>
+                <div class="flex gap-3">
+                    <button id="close-modal-btn" class="bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold py-2 px-4 rounded-lg">Cancelar</button>
+                    <button id="save-cycle-btn" class="bg-sky-500 hover:bg-sky-600 text-white font-bold py-2 px-4 rounded-lg">Salvar Alterações</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="engagement-modal" class="fixed inset-0 z-50 flex items-center justify-center modal-backdrop hidden">
+        <div class="bg-white rounded-2xl shadow-2xl p-6 w-11/12 max-w-md">
+            <h2 class="text-2xl font-bold mb-4 text-slate-900">Adicionar Métricas de Engajamento</h2>
+            <p id="engagement-modal-subtitle" class="text-slate-600 mb-4"></p>
+            <div class="space-y-4">
+                <div>
+                    <label for="likes-input" class="block text-sm font-medium text-slate-700">Curtidas</label>
+                    <input type="number" id="likes-input" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-sky-500 focus:ring-sky-500 sm:text-sm" placeholder="0">
+                </div>
+                <div>
+                    <label for="comments-input" class="block text-sm font-medium text-slate-700">Comentários</label>
+                    <input type="number" id="comments-input" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-sky-500 focus:ring-sky-500 sm:text-sm" placeholder="0">
+                </div>
+                <div>
+                    <label for="shares-input" class="block text-sm font-medium text-slate-700">Compartilhamentos</label>
+                    <input type="number" id="shares-input" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-sky-500 focus:ring-sky-500 sm:text-sm" placeholder="0">
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end gap-3">
+                <button id="close-engagement-modal-btn" class="bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold py-2 px-4 rounded-lg">Cancelar</button>
+                <button id="save-engagement-btn" class="bg-sky-500 hover:bg-sky-600 text-white font-bold py-2 px-4 rounded-lg">Salvar Métricas</button>
+            </div>
+        </div>
+    </div>
+
+     <div id="post-detail-modal" class="fixed inset-0 z-50 flex items-center justify-center modal-backdrop hidden">
+        <div class="bg-white rounded-2xl shadow-2xl p-6 w-11/12 max-w-lg">
+            <div class="flex justify-between items-center mb-4">
+                 <h2 class="text-2xl font-bold text-slate-900">Detalhes de Engajamento do Post</h2>
+                 <button id="close-post-detail-modal-btn" class="text-2xl font-bold">&times;</button>
+            </div>
+            <div id="post-detail-content"></div>
+        </div>
+    </div>
+
+    <div id="quality-modal" class="fixed inset-0 z-50 flex items-center justify-center modal-backdrop hidden">
+        <div class="bg-white rounded-2xl shadow-2xl p-6 w-11/12 max-w-md">
+            <h2 class="text-2xl font-bold mb-4 text-slate-900">Avaliar Qualidade do Post</h2>
+            <p id="quality-modal-subtitle" class="text-slate-600 mb-4"></p>
+            <div id="quality-modal-content" class="space-y-4">
+                <!-- Star ratings and notes will be injected here -->
+            </div>
+            <div class="mt-6 flex justify-end gap-3">
+                <button id="close-quality-modal-btn" class="bg-sky-500 hover:bg-sky-600 text-white font-bold py-2 px-4 rounded-lg">Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Full App Logic
+        (function() {
+            function debounce(func, wait) {
+                let timeout;
+                return function executedFunction(...args) {
+                    const later = () => {
+                        clearTimeout(timeout);
+                        func(...args);
+                    };
+                    clearTimeout(timeout);
+                    timeout = setTimeout(later, wait);
+                };
+            }
+
+            const app = {
+                data: {
+                    cycles: [],
+                    currentCycleIndex: 0,
+                    currentView: 'dashboard',
+                    currentAvaliacaoCentralCityIndex: null,
+                    cronogramaFilterStoreIndex: -1, // -1 for all stores
+                    ideaBank: {
+                        todo: [{id: 1, text: 'Ideia de vídeo sobre novo produto.', tag: 'Estratégica'}],
+                        inprogress: [],
+                        done: []
+                    }
+                },
+                ui: {
+                    viewContainer: document.getElementById('view-container'),
+                    cycleSelect: document.getElementById('cycle-select'),
+                    nav: document.querySelector('nav'),
+                    manageModal: document.getElementById('manage-modal'),
+                    cycleNameInput: document.getElementById('cycle-name-input'),
+                    citiesInput: document.getElementById('cities-input'),
+                    tasksInput: document.getElementById('tasks-input'),
+                    engagementGoalInput: document.getElementById('engagement-goal-input'),
+                    qualityGoalInput: document.getElementById('quality-goal-input'),
+                    performanceGoalInput: document.getElementById('performance-goal-input'),
+                    engagementModal: document.getElementById('engagement-modal'),
+                    engagementSubtitle: document.getElementById('engagement-modal-subtitle'),
+                    likesInput: document.getElementById('likes-input'),
+                    commentsInput: document.getElementById('comments-input'),
+                    sharesInput: document.getElementById('shares-input'),
+                    postDetailModal: document.getElementById('post-detail-modal'),
+                    postDetailContent: document.getElementById('post-detail-content'),
+                    qualityModal: document.getElementById('quality-modal'),
+                    qualityModalSubtitle: document.getElementById('quality-modal-subtitle'),
+                    qualityModalContent: document.getElementById('quality-modal-content'),
+                },
+                chart: null,
+                currentEngagementTarget: null,
+                currentQualityTarget: null,
+                draggedIdea: null,
+
+                init() {
+                    this.loadDataFromLocalStorage();
+                    this.bindEvents();
+                    this.render();
+                    window.addEventListener('resize', debounce(() => {
+                        if (this.data.currentView === 'dashboard') this.renderDashboard();
+                    }, 250));
+                },
+
+                bindEvents() {
+                    this.ui.cycleSelect.addEventListener('change', (e) => {
+                        this.data.currentCycleIndex = parseInt(e.target.value);
+                        this.data.currentAvaliacaoCentralCityIndex = null;
+                        this.data.cronogramaFilterStoreIndex = -1;
+                        this.render();
+                    });
+                    
+                    this.ui.nav.addEventListener('click', (e) => {
+                        if (e.target.closest('button[data-view]')) {
+                            this.data.currentView = e.target.closest('button[data-view]').dataset.view;
+                            this.render();
+                        }
+                    });
+
+                    document.getElementById('manage-cycle-btn').addEventListener('click', () => this.openManageModal());
+                    document.getElementById('add-cycle-btn').addEventListener('click', () => this.addCycle());
+                    document.getElementById('close-modal-btn').addEventListener('click', () => this.closeManageModal());
+                    document.getElementById('save-cycle-btn').addEventListener('click', () => this.saveCycle());
+                    document.getElementById('delete-cycle-btn').addEventListener('click', () => this.deleteCycle());
+                    document.getElementById('export-data-btn').addEventListener('click', () => this.exportData());
+                    document.getElementById('import-file-input').addEventListener('change', (e) => this.importData(e));
+                    document.getElementById('export-html-btn').addEventListener('click', () => this.exportAsHTML());
+                    document.getElementById('close-engagement-modal-btn').addEventListener('click', () => this.closeEngagementModal());
+                    document.getElementById('save-engagement-btn').addEventListener('click', () => this.saveEngagement());
+                    document.getElementById('close-post-detail-modal-btn').addEventListener('click', () => this.closePostDetailModal());
+                    document.getElementById('close-quality-modal-btn').addEventListener('click', () => this.closeQualityModal());
+                },
+
+                getCurrentCycle() {
+                    return this.data.cycles[this.data.currentCycleIndex];
+                },
+                
+                getEmptyCompletionData() {
+                    return { 
+                        status: 'pending', 
+                        quality: { qualidade: 0, edicao: 0, criatividade: 0, comunicacao: 0, notes: '' }, 
+                        engagement: { likes: 0, comments: 0, shares: 0 } 
+                    };
+                },
+
+                loadDefaultData() {
+                    const initialData = {
+                        name: "Ciclo 12 / 2025",
+                        cities: [
+                            { name: 'Três Pontas', followers: 8500 },
+                            { name: 'Varginha', followers: 15200 },
+                            { name: 'Boa Esperança', followers: 6300 },
+                            { name: 'Lavras', followers: 12000 },
+                            { name: 'Campobelo', followers: 7100 },
+                            { name: 'Eloi Mendes', followers: 5400 },
+                            { name: 'Formiga', followers: 9800 }
+                        ],
+                        tasks: [
+                            { date: '14/08', category: 'Obrigatória', description: 'Reels | Chegou a promo mais esperada do ano' },
+                            { date: '19/08', category: 'Obrigatória', description: 'Reels | Apresentação ZAAD Intense com CapCut' },
+                            { date: '27/08', category: 'Obrigatória', description: 'Reels | Minha amiga vai mostrar os itens favoritos dela da Promo de Make' },
+                            { date: '28/08', category: 'Obrigatória', description: 'Reels | Arrume-se Comigo usando só produtos que estão na Promo de MakeB' },
+                            { date: '13/08', category: 'Autoral', description: 'Reels | ASMR | Reabastecendo a embalagem | NativaSPA ou CBEM' },
+                            { date: '15/08', category: 'Autoral', description: 'Reels | Meus refis favoritos de OBoti' },
+                            { date: '26/08', category: 'Autoral', description: 'Reels | Fui na loja e deu tudo certo' },
+                            { date: '29/08', category: 'Autoral', description: 'Reels | Fotografando minha nova cliente' },
+                            { date: '30/08', category: 'Autoral', description: 'Reels | O que falta no seu dia' },
+                            { date: '16/08', category: 'Estratégica', description: 'Reels | Resenha silenciosa de Egeo Cogu Mellow' },
+                            { date: '17/08', category: 'Estratégica', description: 'Reels | Resenha silenciosa de Egeo Cogu Mellow' },
+                            { date: '22/08', category: 'Estratégica', description: 'Reels | Senti seu cheiro do outro lado da rua' },
+                            { date: '23/08', category: 'Estratégica', description: 'Reels | Um Zaad pra cada ocasião' }
+                        ],
+                        completionData: {},
+                        dailyEvaluationData: {},
+                        engagementGoal: 20000,
+                        qualityGoal: 4.5,
+                        performanceGoal: 5000
+                    };
+                    this.data.cycles.push(initialData);
+                },
+                
+                loadDataFromLocalStorage() {
+                    try {
+                        if (typeof __preloadedData !== 'undefined' && __preloadedData) {
+                            this.data = __preloadedData;
+                            this.migrateData();
+                            return;
+                        }
+                        const savedData = localStorage.getItem('socialMediaControlData');
+                        if (savedData) {
+                            const parsedData = JSON.parse(savedData);
+                            if (parsedData && parsedData.cycles) {
+                                 this.data = parsedData;
+                                 this.migrateData();
+                            } else {
+                                 this.loadDefaultData();
+                            }
+                        } else {
+                            this.loadDefaultData();
+                        }
+                    } catch (e) {
+                        console.error("Error loading data from localStorage", e);
+                        this.loadDefaultData();
+                    }
+                },
+                
+                migrateData() {
+                    // This function ensures old data structures are updated to new ones.
+                    this.data.cycles.forEach(cycle => {
+                        if (cycle.completionData) {
+                            for (const key in cycle.completionData) {
+                                const entry = cycle.completionData[key];
+                                // Migration from 'completed: boolean' to 'status: string'
+                                if (typeof entry.completed !== 'undefined' && typeof entry.status === 'undefined') {
+                                    entry.status = entry.completed ? 'done' : 'pending';
+                                    delete entry.completed;
+                                }
+                                if (typeof entry.status === 'undefined') {
+                                    entry.status = 'pending';
+                                }
+                            }
+                        }
+                        if (typeof cycle.performanceGoal === 'undefined') {
+                            cycle.performanceGoal = 5000;
+                        }
+                    });
+                    this.saveDataToLocalStorage();
+                },
+
+                saveDataToLocalStorage() {
+                    try {
+                        localStorage.setItem('socialMediaControlData', JSON.stringify(this.data));
+                    } catch (e) {
+                        console.error("Error saving data to localStorage", e);
+                    }
+                },
+
+                calculatePerformanceData(cycle) {
+                    return cycle.cities.map((city, cityIndex) => {
+                        let totalEngScore = 0;
+                        let cumulativeQualityScore = 0;
+                        let totalQualSumForDisplayAvg = 0;
+                        let qualRatedTasksForDisplayAvg = 0;
+
+                        cycle.tasks.forEach((task, taskIndex) => {
+                            const key = `${taskIndex}-${cityIndex}`;
+                            if (cycle.completionData[key]?.status === 'done') {
+                                const eng = cycle.completionData[key].engagement;
+                                totalEngScore += (eng.likes || 0) * 1 + (eng.comments || 0) * 2 + (eng.shares || 0) * 3;
+                                
+                                const qual = cycle.completionData[key].quality;
+                                const qualSum = (qual.qualidade || 0) + (qual.edicao || 0) + (qual.criatividade || 0) + (qual.comunicacao || 0);
+                                if (qualSum > 0) {
+                                    const taskAvgQuality = qualSum / 4;
+                                    cumulativeQualityScore += taskAvgQuality;
+                                    totalQualSumForDisplayAvg += taskAvgQuality;
+                                    qualRatedTasksForDisplayAvg++;
+                                }
+                            }
+                        });
+
+                        const displayAvgQuality = qualRatedTasksForDisplayAvg > 0 ? (totalQualSumForDisplayAvg / qualRatedTasksForDisplayAvg) : 0;
+                        
+                        const dailyEval = cycle.dailyEvaluationData?.[cityIndex] || { interacao: 0, criatividade: 0, constancia: 0, qualidade: 0 };
+                        const dailyEvalScore = (dailyEval.interacao + dailyEval.criatividade + dailyEval.constancia + dailyEval.qualidade);
+                        const dailyEvalAvg = dailyEvalScore > 0 ? (dailyEvalScore / 4) : 0;
+
+                        const followers = city.followers || 1;
+                        
+                        // --- REBALANCED CALCULATION ---
+                        const normalizedEngScore = followers > 0 ? (totalEngScore / followers) * 25000 : 0;
+                        const qualityContribution = cumulativeQualityScore * 40; 
+                        const dailyEvalContribution = dailyEvalAvg * 600;
+
+                        const combinedScore = normalizedEngScore + qualityContribution + dailyEvalContribution;
+
+                        return { 
+                            city: city.name,
+                            engScore: totalEngScore,
+                            avgQuality: displayAvgQuality.toFixed(1), // For display
+                            dailyEvalAvg: dailyEvalAvg.toFixed(1), // For display
+                            combinedScore: Math.round(combinedScore),
+                            engagementRate: totalEngScore / followers
+                        };
+                    }).sort((a, b) => b.combinedScore - a.combinedScore);
+                },
+
+                render() {
+                    if (!this.data.cycles || this.data.cycles.length === 0) { return; }
+                    this.renderCycleSelector();
+                    this.updateNav();
+                    
+                    switch(this.data.currentView) {
+                        case 'dashboard': this.renderDashboard(); break;
+                        case 'cronograma': this.renderCronograma(); break;
+                        case 'calendario': this.renderCalendario(); break;
+                        case 'avaliacao-central': this.renderAvaliacaoCentral(); break;
+                        case 'report': this.renderReport(); break;
+                        case 'ideias': this.renderIdeias(); break;
+                    }
+                },
+                
+                updateNav() {
+                    this.ui.nav.querySelectorAll('.nav-item').forEach(item => {
+                        item.classList.toggle('active', item.dataset.view === this.data.currentView);
+                    });
+                },
+
+                renderCycleSelector() {
+                    this.ui.cycleSelect.innerHTML = '';
+                    this.data.cycles.forEach((cycle, index) => {
+                        const option = document.createElement('option');
+                        option.value = index;
+                        option.textContent = cycle.name;
+                        option.selected = index === this.data.currentCycleIndex;
+                        this.ui.cycleSelect.appendChild(option);
+                    });
+                },
+                
+                calculateAchievements(cycle, previousCycle) {
+                    let achievements = {
+                        growth: { city: '-', value: -Infinity },
+                        quality: { city: '-', value: -Infinity },
+                        engagement: { city: '-', value: -Infinity }
+                    };
+
+                    const performanceData = this.calculatePerformanceData(cycle);
+
+                    // Engagement Rate
+                    if (performanceData.length > 0) {
+                        const topEngager = performanceData.reduce((max, store) => store.engagementRate > max.engagementRate ? store : max, {engagementRate: -1});
+                        if (topEngager.engagementRate > -1) {
+                           achievements.engagement = { city: topEngager.city, value: topEngager.engagementRate };
+                        }
+                    }
+
+                    // Quality and Growth
+                    cycle.cities.forEach(city => {
+                        // Quality
+                        const cityPerf = performanceData.find(p => p.city === city.name);
+                        if (cityPerf && parseFloat(cityPerf.avgQuality) > achievements.quality.value) {
+                             achievements.quality = { city: city.name, value: parseFloat(cityPerf.avgQuality) };
+                        }
+
+                        // Growth
+                        if (previousCycle) {
+                            const prevCity = previousCycle.cities.find(c => c.name === city.name);
+                            if (prevCity) {
+                                const growth = city.followers - prevCity.followers;
+                                if (growth > achievements.growth.value) {
+                                    achievements.growth = { city: city.name, value: growth };
+                                }
+                            }
+                        }
+                    });
+
+                    return achievements;
+                },
+
+                renderDashboard() {
+                    const cycle = this.getCurrentCycle();
+                    const previousCycle = this.data.cycles[this.data.currentCycleIndex - 1];
+                    const TODAY = new Date();
+                    
+                    const delayedTasks = {};
+                    const missingMetrics = {};
+                    const missingQuality = {};
+                    let totalEngagement = 0, totalQualitySum = 0, totalQualityTasks = 0;
+
+                    cycle.cities.forEach((city, cityIndex) => {
+                        cycle.tasks.forEach((task, taskIndex) => {
+                            const key = `${taskIndex}-${cityIndex}`;
+                            const data = cycle.completionData[key];
+                            const status = data?.status || 'pending';
+                            
+                            if (status === 'done') {
+                                if (!data.engagement || (data.engagement.likes === 0 && data.engagement.comments === 0 && data.engagement.shares === 0)) {
+                                    if (!missingMetrics[city.name]) missingMetrics[city.name] = [];
+                                    missingMetrics[city.name].push(task.description);
+                                } else {
+                                    totalEngagement += (data.engagement.likes || 0) * 1 + (data.engagement.comments || 0) * 2 + (data.engagement.shares || 0) * 3;
+                                }
+                                
+                                if (!data.quality || (data.quality.qualidade === 0 && data.quality.edicao === 0 && data.quality.criatividade === 0 && data.quality.comunicacao === 0)) {
+                                     if (!missingQuality[city.name]) missingQuality[city.name] = [];
+                                     missingQuality[city.name].push(task.description);
+                                } else {
+                                    totalQualitySum += (data.quality.qualidade + data.quality.edicao + data.quality.criatividade + data.quality.comunicacao) / 4;
+                                    totalQualityTasks++;
+                                }
+                            } else if (status === 'pending') {
+                                const [day, month] = task.date.split('/');
+                                const year = cycle.name.match(/\d{4}/) ? cycle.name.match(/\d{4}/)[0] : TODAY.getFullYear();
+                                if (new Date(`${year}-${month}-${day}T23:59:59-03:00`) < TODAY) {
+                                    if (!delayedTasks[city.name]) delayedTasks[city.name] = [];
+                                    delayedTasks[city.name].push(task.description);
+                                }
+                            }
+                        });
+                    });
+                    
+                    const overallQualityAvg = totalQualityTasks > 0 ? (totalQualitySum / totalQualityTasks) : 0;
+                    const performanceData = this.calculatePerformanceData(cycle);
+                    const top3Stores = performanceData.slice(0, 3);
+                    const achievements = this.calculateAchievements(cycle, previousCycle);
+
+                    let alertsHTML = '';
+                    const hasDelayed = Object.keys(delayedTasks).length > 0;
+                    const hasMissingMetrics = Object.keys(missingMetrics).length > 0;
+                    const hasMissingQuality = Object.keys(missingQuality).length > 0;
+
+                    if (hasDelayed || hasMissingMetrics || hasMissingQuality) {
+                        alertsHTML = `<div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded-lg shadow-md space-y-4" role="alert">`;
+                        
+                        if (hasDelayed) {
+                            alertsHTML += `<div><p class="font-bold text-sm">Tarefas Atrasadas</p><ul class="mt-1 list-disc list-inside text-xs space-y-1">`;
+                            for (const store in delayedTasks) {
+                                alertsHTML += `<li><strong>${store}:</strong> ${delayedTasks[store].join(', ')}</li>`;
+                            }
+                            alertsHTML += `</ul></div>`;
+                        }
+
+                        if (hasMissingMetrics) {
+                            alertsHTML += `<div><p class="font-bold text-sm">Métricas de Engajamento Pendentes</p><ul class="mt-1 list-disc list-inside text-xs space-y-1">`;
+                            for (const store in missingMetrics) {
+                                alertsHTML += `<li><strong>${store}:</strong> ${missingMetrics[store].join(', ')}</li>`;
+                            }
+                            alertsHTML += `</ul></div>`;
+                        }
+
+                        if (hasMissingQuality) {
+                            alertsHTML += `<div><p class="font-bold text-sm">Avaliações de Qualidade Pendentes</p><ul class="mt-1 list-disc list-inside text-xs space-y-1">`;
+                            for (const store in missingQuality) {
+                                alertsHTML += `<li><strong>${store}:</strong> ${missingQuality[store].join(', ')}</li>`;
+                            }
+                            alertsHTML += `</ul></div>`;
+                        }
+                        alertsHTML += `</div>`;
+                    }
+
+                    let content = `
+                        <div id="alerts-panel" class="mb-6">${alertsHTML}</div>
+
+                        <div id="goals-panel" class="mb-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="bg-white p-6 rounded-2xl shadow-md">
+                                <h3 class="font-bold text-slate-800 mb-2">Meta de Engajamento</h3>
+                                <p class="text-3xl font-bold text-sky-600">${totalEngagement.toLocaleString('pt-BR')} <span class="text-lg font-normal text-slate-500">/ ${cycle.engagementGoal.toLocaleString('pt-BR')}</span></p>
+                                <div class="w-full bg-slate-200 rounded-full h-2.5 mt-2">
+                                    <div class="bg-sky-500 h-2.5 rounded-full" style="width: ${Math.min(100, (totalEngagement / (cycle.engagementGoal || 1)) * 100)}%"></div>
+                                </div>
+                            </div>
+                             <div class="bg-white p-6 rounded-2xl shadow-md">
+                                <h3 class="font-bold text-slate-800 mb-2">Meta de Qualidade Média</h3>
+                                <p class="text-3xl font-bold text-amber-600">${overallQualityAvg.toFixed(1)} <span class="text-lg font-normal text-slate-500">/ ${cycle.qualityGoal.toFixed(1)}</span></p>
+                                <div class="w-full bg-slate-200 rounded-full h-2.5 mt-2">
+                                    <div class="bg-amber-500 h-2.5 rounded-full" style="width: ${Math.min(100, (overallQualityAvg / (cycle.qualityGoal || 1)) * 100)}%"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                            <div class="bg-white rounded-2xl shadow-md p-6">
+                                <h2 class="text-2xl font-bold mb-4 text-slate-900">Desempenho Geral das Lojas</h2>
+                                <p class="text-slate-600 mb-6">Ranking com base na taxa de engajamento e qualidade.</p>
+                                <div class="chart-container">
+                                    <canvas id="dashboard-chart"></canvas>
+                                </div>
+                            </div>
+                            <div class="flex flex-col gap-6">
+                                <div class="bg-white rounded-2xl shadow-md p-6">
+                                    <h2 class="text-2xl font-bold mb-4 text-slate-900">🏆 Top 3 Lojas Destaque</h2>
+                                    <p class="text-slate-600 mb-6">Melhores desempenhos do ciclo.</p>
+                                    <ul class="space-y-3">
+                                        ${top3Stores.map((item, index) => {
+                                            const medals = ['🥇', '🥈', '🥉'];
+                                            const colors = ['bg-amber-100', 'bg-slate-200', 'bg-orange-100'];
+                                            return `<li class="p-3 rounded-lg flex items-center justify-between ${colors[index]}">
+                                                        <div class="flex items-center">
+                                                            <span class="text-2xl w-8">${medals[index]}</span>
+                                                            <span class="font-semibold text-slate-800">${item.city}</span>
+                                                        </div>
+                                                        <div class="text-right">
+                                                            <p class="font-bold text-sky-600 text-lg">${item.combinedScore} <span class="text-sm font-normal text-slate-500">pontos</span></p>
+                                                        </div>
+                                                    </li>`
+                                        }).join('') || '<p class="text-slate-500">Ainda não há dados suficientes para o ranking.</p>'}
+                                    </ul>
+                                </div>
+                                 <div class="bg-white rounded-2xl shadow-md p-6">
+                                    <h2 class="text-2xl font-bold mb-4 text-slate-900">🏅 Conquistas do Ciclo</h2>
+                                    <ul class="space-y-3">
+                                        <li class="p-3 rounded-lg flex items-center justify-between bg-green-50">
+                                            <span class="font-semibold text-slate-800">🥇 Maior Crescimento</span>
+                                            <span class="font-bold text-green-600">${achievements.growth.city} (+${achievements.growth.value.toLocaleString('pt-BR')})</span>
+                                        </li>
+                                        <li class="p-3 rounded-lg flex items-center justify-between bg-yellow-50">
+                                            <span class="font-semibold text-slate-800">⭐ Rainha da Qualidade</span>
+                                            <span class="font-bold text-yellow-600">${achievements.quality.city} (${achievements.quality.value.toFixed(1)})</span>
+                                        </li>
+                                        <li class="p-3 rounded-lg flex items-center justify-between bg-sky-50">
+                                            <span class="font-semibold text-slate-800">🚀 Super Engajamento</span>
+                                            <span class="font-bold text-sky-600">${achievements.engagement.city}</span>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mt-8">
+                            <h2 class="text-2xl font-bold mb-4 text-slate-900">Desempenho em Relação à Meta</h2>
+                            <div class="bg-white rounded-2xl shadow-md p-6">
+                                <p class="text-slate-600 mb-4">Meta do Ciclo: <span class="font-bold">${(cycle.performanceGoal || 0).toLocaleString('pt-BR')}</span> pontos</p>
+                                <ul class="space-y-4">
+                    `;
+                    performanceData.sort((a,b) => a.city.localeCompare(b.city)).forEach(storeData => {
+                        const percentage = cycle.performanceGoal > 0 ? Math.round((storeData.combinedScore / cycle.performanceGoal) * 100) : 0;
+                        content += `
+                                    <li>
+                                        <div class="flex justify-between items-center mb-1">
+                                            <span class="font-semibold text-slate-800 flex items-center">${storeData.city} ${percentage >= 100 ? '<span class="ml-2">🏆</span>' : ''}</span>
+                                            <span class="font-bold text-sky-600">${percentage}%</span>
+                                        </div>
+                                        <div class="w-full bg-slate-200 rounded-full h-2.5">
+                                            <div class="bg-sky-500 h-2.5 rounded-full" style="width: ${Math.min(100, percentage)}%"></div>
+                                        </div>
+                                    </li>
+                        `;
+                    });
+                    content += `</ul></div></div>`;
+
+
+                    this.ui.viewContainer.innerHTML = content;
+                    this.renderDashboardChart();
+                },
+
+                renderCronograma() {
+                    const cycle = this.getCurrentCycle();
+                    const categories = ['Obrigatória', 'Autoral', 'Estratégica'];
+                    const categoryColors = { 'Obrigatória': 'border-red-500', 'Autoral': 'border-blue-500', 'Estratégica': 'border-yellow-500' };
+                    
+                    let containerHTML = `
+                        <div class="bg-white p-4 rounded-t-2xl shadow-md flex items-center gap-3">
+                           <label for="store-filter" class="font-semibold text-slate-700">Filtrar por Loja:</label>
+                           <select id="store-filter" class="block w-full sm:w-auto bg-slate-50 border border-slate-300 text-slate-900 rounded-lg focus:ring-sky-500 focus:border-sky-500 p-2.5">
+                                <option value="-1">Todas as Lojas</option>
+                                ${cycle.cities.map((city, index) => `<option value="${index}" ${this.data.cronogramaFilterStoreIndex === index ? 'selected' : ''}>${city.name}</option>`).join('')}
+                           </select>
+                        </div>
+                        <div class="space-y-8 mt-[-1px]">`; // Negative margin to connect filter bar
+                    
+                    categories.forEach(category => {
+                        const tasksForCategory = cycle.tasks.map((task, index) => ({...task, originalIndex: index})).filter(task => task.category === category);
+                        if (tasksForCategory.length === 0) return;
+
+                        containerHTML += `
+                            <div class="bg-white rounded-b-2xl shadow-md p-6">
+                                <h3 class="text-xl font-bold mb-4 text-slate-800 border-l-4 ${categoryColors[category]} pl-3">${category}</h3>
+                                <div class="overflow-x-auto">
+                                    <table class="w-full text-sm text-left text-slate-600">
+                                        <thead class="text-xs text-slate-700 uppercase bg-slate-100">
+                                            <tr>
+                                                <th class="px-4 py-3 rounded-l-lg w-24">Data</th>
+                                                <th class="px-4 py-3">Tarefa</th>
+                                                ${cycle.cities.map((c, i) => (this.data.cronogramaFilterStoreIndex === -1 || this.data.cronogramaFilterStoreIndex === i) ? `<th class="px-4 py-3 text-center min-w-[120px]">${c.name}</th>` : '').join('')}
+                                            </tr>
+                                        </thead>
+                                        <tbody>`;
+
+                        tasksForCategory.forEach(task => {
+                            const taskIndex = task.originalIndex;
+                            containerHTML += `<tr class="bg-white border-b border-slate-100">
+                                <td class="px-4 py-4 font-medium">${task.date}</td>
+                                <td class="px-4 py-4">${task.description}</td>
+                                ${cycle.cities.map((city, cityIndex) => {
+                                    if (this.data.cronogramaFilterStoreIndex !== -1 && this.data.cronogramaFilterStoreIndex !== cityIndex) return '';
+                                    
+                                    const key = `${taskIndex}-${cityIndex}`;
+                                    const status = cycle.completionData[key]?.status || 'pending';
+
+                                    let statusClass, statusText;
+                                    if (status === 'done') {
+                                        statusClass = 'bg-green-200 text-green-800 hover:bg-green-300';
+                                        statusText = 'Feito ✓';
+                                    } else if (status === 'not_done') {
+                                        statusClass = 'bg-red-200 text-red-800 hover:bg-red-300';
+                                        statusText = 'Não Feito ✗';
+                                    } else { // 'pending'
+                                        statusClass = 'bg-slate-200 text-slate-700 hover:bg-slate-300';
+                                        statusText = 'Pendente';
+                                    }
+                                    
+                                    return `<td class="px-2 py-2 text-center align-middle">
+                                        <button data-key="${key}" class="status-btn w-full text-xs font-bold py-1.5 px-2 rounded-md transition-colors ${statusClass}">
+                                            ${statusText}
+                                        </button>
+                                    </td>`;
+                                }).join('')}
+                            </tr>`;
+                        });
+                        
+                        containerHTML += `</tbody></table></div></div>`;
+                    });
+
+                    containerHTML += '</div>';
+                    this.ui.viewContainer.innerHTML = containerHTML;
+                    
+                     this.ui.viewContainer.querySelector('#store-filter').addEventListener('change', (e) => {
+                        this.data.cronogramaFilterStoreIndex = parseInt(e.target.value);
+                        this.renderCronograma();
+                    });
+
+                    this.ui.viewContainer.querySelectorAll('.status-btn').forEach(statusBtn => {
+                        statusBtn.addEventListener('click', (e) => {
+                            const key = e.currentTarget.dataset.key;
+                            if (!cycle.completionData[key]) {
+                                cycle.completionData[key] = this.getEmptyCompletionData();
+                            }
+                            
+                            const currentStatus = cycle.completionData[key].status || 'pending';
+                            let nextStatus;
+                             if (currentStatus === 'done') {
+                                nextStatus = 'not_done';
+                            } else { // covers 'pending' and 'not_done'
+                                nextStatus = 'done';
+                            }
+                            cycle.completionData[key].status = nextStatus;
+                            this.saveDataToLocalStorage();
+                            this.renderCronograma();
+                        });
+                    });
+                },
+
+                renderCalendario() {
+                    const cycle = this.getCurrentCycle();
+                    const year = cycle.name.match(/\d{4}/) ? parseInt(cycle.name.match(/\d{4}/)[0]) : new Date().getFullYear();
+                    const month = cycle.tasks.length > 0 ? parseInt(cycle.tasks[0].date.split('/')[1]) - 1 : new Date().getMonth();
+                    
+                    const firstDay = new Date(year, month, 1);
+                    const lastDay = new Date(year, month + 1, 0);
+                    const daysInMonth = lastDay.getDate();
+                    const startDayOfWeek = firstDay.getDay();
+
+                    const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+                    const dayNames = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+
+                    let content = `<div class="bg-white rounded-2xl shadow-md p-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="text-2xl font-bold text-slate-900">${monthNames[month]} ${year}</h2>
+                        </div>
+                        <div class="grid grid-cols-7 gap-1 text-center">
+                            ${dayNames.map(day => `<div class="font-bold text-slate-600 text-sm py-2">${day}</div>`).join('')}`;
+
+                    for (let i = 0; i < startDayOfWeek; i++) {
+                        content += `<div></div>`;
+                    }
+
+                    for (let day = 1; day <= daysInMonth; day++) {
+                        const tasksForDay = cycle.tasks.filter(task => parseInt(task.date.split('/')[0]) === day);
+                        content += `<div class="border border-slate-200 rounded-lg p-2 h-32 overflow-y-auto">
+                            <div class="font-bold text-slate-800">${day}</div>
+                            <div class="text-left text-xs mt-1 space-y-1">
+                                ${tasksForDay.map(task => {
+                                    const colors = {'Obrigatória': 'bg-red-200', 'Autoral': 'bg-blue-200', 'Estratégica': 'bg-yellow-200'};
+                                    return `<div class="p-1 rounded ${colors[task.category]}">${task.description}</div>`;
+                                }).join('')}
+                            </div>
+                        </div>`;
+                    }
+
+                    content += `</div></div>`;
+                    this.ui.viewContainer.innerHTML = content;
+                },
+                
+                renderAvaliacaoCentral() {
+                    const cycle = this.getCurrentCycle();
+                    const cityIndex = this.data.currentAvaliacaoCentralCityIndex;
+
+                    let content = `
+                        <div class="bg-white rounded-2xl shadow-md p-6">
+                            <h2 class="text-2xl font-bold mb-4 text-slate-900">Avaliação Centralizada</h2>
+                            <p class="text-slate-600 mb-6">Selecione uma loja para avaliar todos os indicadores em um só lugar.</p>
+                            <div id="avaliacao-store-selector" class="flex flex-wrap gap-2 mb-6">
+                                ${cycle.cities.map((city, index) => `<button data-city-index="${index}" class="store-selector-btn p-2 px-4 rounded-lg font-semibold text-sm transition ${index === cityIndex ? 'active' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'}">${city.name}</button>`).join('')}
+                            </div>
+                    `;
+
+                    if (cityIndex === null) {
+                        content += `<div class="text-center py-10 px-4 bg-slate-50 rounded-lg border-2 border-dashed border-slate-200">
+                                        <p class="text-slate-500 font-medium">Selecione uma loja acima para começar a avaliação.</p>
+                                    </div>`;
+                    } else {
+                        content += `<div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                        <div>${this.getAvaliacaoQualidadeHTML(cycle, cityIndex)}</div>
+                                        <div class="flex flex-col gap-8">
+                                            ${this.getAvaliacaoDiariaHTML(cycle, cityIndex)}
+                                            ${this.getAvaliacaoEngajamentoHTML(cycle, cityIndex)}
+                                        </div>
+                                    </div>`;
+                    }
+                    content += '</div>';
+                    this.ui.viewContainer.innerHTML = content;
+
+                    if (cityIndex !== null) {
+                        this.bindAvaliacaoCentralEvents(cycle, cityIndex);
+                    }
+                    
+                    this.ui.viewContainer.querySelector('#avaliacao-store-selector').addEventListener('click', (e) => {
+                        if (e.target.matches('button')) {
+                            this.data.currentAvaliacaoCentralCityIndex = parseInt(e.target.dataset.cityIndex);
+                            this.renderAvaliacaoCentral();
+                        }
+                    });
+                },
+
+                getAvaliacaoQualidadeHTML(cycle, cityIndex) {
+                    let content = '<h3 class="text-xl font-bold mb-4 text-slate-800">1. Qualidade dos Posts</h3><div id="quality-task-list" class="space-y-2 max-h-[60vh] overflow-y-auto pr-2">';
+                    let completedTasksExist = false;
+
+                    cycle.tasks.forEach((task, taskIndex) => {
+                        const key = `${taskIndex}-${cityIndex}`;
+                        if (cycle.completionData[key]?.status === 'done') {
+                            completedTasksExist = true;
+                            if (!cycle.completionData[key].quality) {
+                                cycle.completionData[key].quality = { qualidade: 0, edicao: 0, criatividade: 0, comunicacao: 0, notes: '' };
+                            }
+                            const qualityData = cycle.completionData[key].quality;
+                            const isQualityComplete = qualityData.qualidade > 0 && qualityData.edicao > 0 && qualityData.criatividade > 0 && qualityData.comunicacao > 0;
+                            
+                            const bgColor = isQualityComplete ? 'bg-green-100 hover:bg-green-200' : 'bg-yellow-100 hover:bg-yellow-200';
+                            const icon = isQualityComplete ? '<span class="text-green-600 font-bold">&#10003;</span>' : '<span class="text-yellow-600 font-bold">&#9888;</span>';
+
+                            content += `<button data-key="${key}" class="quality-btn text-left p-3 rounded-md text-sm transition w-full ${bgColor}">
+                                <div class="flex justify-between items-start">
+                                    <div><span class="font-semibold">${task.date} - ${task.description}</span></div>
+                                    ${icon}
+                                </div>
+                            </button>`;
+                        }
+                    });
+
+                    if (!completedTasksExist) {
+                        content += `<p class="text-slate-500 text-center py-8">Nenhuma tarefa "Feita" para esta loja.</p>`;
+                    }
+                    content += '</div>';
+                    return content;
+                },
+
+                getAvaliacaoDiariaHTML(cycle, cityIndex) {
+                    if (!cycle.dailyEvaluationData) cycle.dailyEvaluationData = {};
+                    if (!cycle.dailyEvaluationData[cityIndex]) {
+                        cycle.dailyEvaluationData[cityIndex] = { interacao: 0, criatividade: 0, constancia: 0, qualidade: 0, notes: '' };
+                    }
+                    const evalData = cycle.dailyEvaluationData[cityIndex];
+                    const criteria = [
+                        { key: 'interacao', label: 'Interação' }, { key: 'criatividade', label: 'Conteúdo criativo' },
+                        { key: 'constancia', label: 'Constância' }, { key: 'qualidade', label: 'Qualidade' }
+                    ];
+
+                    return `<div id="daily-eval-form-container">
+                                <h3 class="text-xl font-bold mb-4 text-slate-800">2. Avaliação Diária (Stories)</h3>
+                                <div class="bg-slate-50 p-4 rounded-lg">
+                                    <div class="space-y-4">
+                                        ${criteria.map(item => `<div class="flex items-center justify-between">
+                                            <p class="font-semibold text-sm text-slate-700">${item.label}</p>
+                                            <div class="star-rating daily-eval-stars" data-key="${item.key}">
+                                                ${[1,2,3,4,5].map(s => `<span data-value="${s}" class="${s <= evalData[item.key] ? 'active' : ''}">&#9733;</span>`).join('')}
+                                            </div></div>`).join('')}
+                                    </div>
+                                    <div class="mt-4 pt-4 border-t">
+                                         <textarea id="daily-eval-notes" rows="2" class="block p-2 w-full text-sm text-slate-900 bg-white rounded-lg border border-slate-300" placeholder="Observações Gerais da Semana...">${evalData.notes || ''}</textarea>
+                                    </div>
+                                </div>
+                           </div>`;
+                },
+
+                getAvaliacaoEngajamentoHTML(cycle, cityIndex) {
+                    let content = '<h3 class="text-xl font-bold mb-4 text-slate-800">3. Métricas de Engajamento</h3><div id="report-task-list" class="space-y-2 max-h-[30vh] overflow-y-auto pr-2">';
+                    let completedTasksExist = false;
+
+                     cycle.tasks.forEach((task, taskIndex) => {
+                        const key = `${taskIndex}-${cityIndex}`;
+                        if (cycle.completionData[key]?.status === 'done') {
+                            completedTasksExist = true;
+                            const eng = cycle.completionData[key].engagement;
+                            const hasMetrics = (eng.likes || 0) + (eng.comments || 0) + (eng.shares || 0) > 0;
+                            const bgColor = hasMetrics ? 'bg-green-100 hover:bg-green-200' : 'bg-yellow-100 hover:bg-yellow-200';
+                            const icon = hasMetrics ? '<span class="text-green-600 font-bold">&#10003;</span>' : '<span class="text-yellow-600 font-bold">&#9888;</span>';
+
+                            content += `<button data-key="${key}" class="engagement-btn text-left p-3 rounded-md text-sm transition w-full ${bgColor}">
+                                <div class="flex justify-between items-start">
+                                    <div><span class="font-semibold">${task.date} - ${task.description}</span></div>
+                                    ${icon}
+                                </div>
+                            </button>`;
+                        }
+                    });
+
+                    if (!completedTasksExist) {
+                        content += `<p class="text-slate-500 text-center py-8">Nenhuma tarefa "Feita" para esta loja.</p>`;
+                    }
+                    content += '</div>';
+                    return content;
+                },
+
+                bindAvaliacaoCentralEvents(cycle, cityIndex) {
+                    const view = this.ui.viewContainer;
+
+                    // Quality Evaluation Events
+                    view.querySelectorAll('#quality-task-list .quality-btn').forEach(button => {
+                        button.addEventListener('click', () => this.openQualityModal(button.dataset.key));
+                    });
+
+                    // Daily Evaluation Events
+                    view.querySelector('#daily-eval-notes').addEventListener('change', e => {
+                        cycle.dailyEvaluationData[cityIndex].notes = e.target.value;
+                        this.saveDataToLocalStorage();
+                    });
+                    view.querySelectorAll('.daily-eval-stars').forEach(rating => {
+                        rating.addEventListener('click', e => {
+                             if (e.target.matches('span')) {
+                                const key = rating.dataset.key;
+                                const value = parseInt(e.target.dataset.value);
+                                cycle.dailyEvaluationData[cityIndex][key] = value;
+                                this.saveDataToLocalStorage();
+                                this.renderAvaliacaoCentral();
+                            }
+                        });
+                    });
+                    
+                    // Engagement Events
+                    view.querySelectorAll('#report-task-list .engagement-btn').forEach(button => {
+                         button.addEventListener('click', () => this.openEngagementModal(button.dataset.key));
+                    });
+                },
+
+                renderReport() {
+                    const cycle = this.getCurrentCycle();
+                    const reportData = this.calculatePerformanceData(cycle);
+
+                    // --- Content Analysis Calculation ---
+                    const taskStats = {};
+                    const categoryStats = { 'Obrigatória': { totalPoints: 0, count: 0 }, 'Autoral': { totalPoints: 0, count: 0 }, 'Estratégica': { totalPoints: 0, count: 0 }};
+                    const notDoneTasks = {};
+
+                    cycle.tasks.forEach((task, taskIndex) => {
+                        taskStats[taskIndex] = { totalPoints: 0, count: 0, description: task.description, id: taskIndex };
+                        const notDoneStores = [];
+
+                        cycle.cities.forEach((city, cityIndex) => {
+                            const key = `${taskIndex}-${cityIndex}`;
+                            if (cycle.completionData[key]?.status === 'done') {
+                                const eng = cycle.completionData[key].engagement;
+                                const points = (eng.likes || 0) * 1 + (eng.comments || 0) * 2 + (eng.shares || 0) * 3;
+                                
+                                taskStats[taskIndex].totalPoints += points;
+                                taskStats[taskIndex].count++;
+                                
+                                if (!categoryStats[task.category]) categoryStats[task.category] = { totalPoints: 0, count: 0 };
+                                categoryStats[task.category].totalPoints += points;
+                                categoryStats[task.category].count++;
+                            } else if (cycle.completionData[key]?.status === 'not_done') {
+                                notDoneStores.push(city.name);
+                            }
+                        });
+                        
+                        if (notDoneStores.length > 0) {
+                            notDoneTasks[task.description] = notDoneStores;
+                        }
+                    });
+
+                    const topPosts = Object.values(taskStats)
+                        .filter(stat => stat.count > 0)
+                        .map(stat => ({ ...stat, avgPoints: stat.totalPoints / stat.count }))
+                        .sort((a, b) => b.avgPoints - a.avgPoints)
+                        .slice(0, 5);
+                    
+                    const categoryPerformance = Object.entries(categoryStats)
+                        .map(([category, stats]) => ({
+                            category,
+                            avgPoints: stats.count > 0 ? (stats.totalPoints / stats.count).toFixed(1) : 0
+                        }))
+                        .sort((a, b) => b.avgPoints - a.avgPoints);
+                    // --- End Calculation ---
+
+
+                    let content = `<div class="bg-white rounded-2xl shadow-md p-6">
+                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4">
+                            <div>
+                                <h2 class="text-2xl font-bold text-slate-900">Relatório de Desempenho</h2>
+                                <p class="text-slate-600 mt-1">Ranking de lojas com base na pontuação combinada.</p>
+                            </div>
+                            <button id="export-pdf-btn" class="mt-4 sm:mt-0 bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">Exportar para PDF</button>
+                        </div>
+                        <ul class="space-y-3">`;
+                    
+                    reportData.forEach((item, index) => {
+                        content += `<li class="p-4 rounded-lg flex flex-col sm:flex-row items-start sm:items-center justify-between ${index === 0 ? 'bg-amber-100' : 'bg-slate-50'}">
+                            <div class="flex items-center mb-3 sm:mb-0">
+                                <span class="text-lg font-bold text-slate-500 w-8">${index + 1}.</span>
+                                <span class="font-semibold text-slate-800">${item.city}</span>
+                            </div>
+                            <div class="flex items-center gap-4 md:gap-6 w-full sm:w-auto justify-end">
+                                <div class="text-right">
+                                    <p class="font-bold text-purple-600 text-lg">${item.dailyEvalAvg}</p>
+                                    <p class="text-xs text-slate-500">Aval. Diária</p>
+                                </div>
+                                <div class="text-right">
+                                    <p class="font-bold text-amber-600 text-lg">${item.avgQuality}</p>
+                                    <p class="text-xs text-slate-500">Qualid. Posts</p>
+                                </div>
+                                <div class="text-right">
+                                    <p class="font-bold text-cyan-600 text-lg">${item.engScore.toLocaleString('pt-BR')}</p>
+                                    <p class="text-xs text-slate-500">Engaj. (Bruto)</p>
+                                </div>
+                            </div>
+                        </li>`;
+                    });
+
+                    content += `</ul>
+                        <div class="mt-8 pt-6 border-t">
+                            <h3 class="text-xl font-bold mb-4 text-slate-900">Análise de Conteúdo</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div class="bg-slate-50 p-4 rounded-lg">
+                                    <h4 class="font-semibold mb-3">Top 5 Posts Mais Engajados (Média)</h4>
+                                    <ul class="space-y-2">
+                                        ${topPosts.map((post, index) => `
+                                        <li>
+                                            <button data-task-id="${post.id}" class="post-detail-btn text-sm flex justify-between w-full text-left hover:bg-slate-200 p-1 rounded">
+                                                <span class="truncate pr-2">${index + 1}. ${post.description}</span>
+                                                <span class="font-bold text-sky-600">${post.avgPoints.toFixed(1)} pts</span>
+                                            </button>
+                                        </li>
+                                        `).join('') || '<p class="text-sm text-slate-500">Sem dados de engajamento.</p>'}
+                                    </ul>
+                                </div>
+                                <div class="bg-slate-50 p-4 rounded-lg">
+                                    <h4 class="font-semibold mb-3">Desempenho por Categoria (Média)</h4>
+                                     <ul class="space-y-2">
+                                        ${categoryPerformance.map(cat => `
+                                        <li class="text-sm flex justify-between p-1">
+                                            <span>${cat.category}</span>
+                                            <span class="font-bold text-sky-600">${cat.avgPoints} pts</span>
+                                        </li>
+                                        `).join('')}
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>`;
+                    
+                    let notDoneContent = `
+                        <div class="mt-8 pt-6 border-t">
+                            <h3 class="text-xl font-bold mb-4 text-slate-900">Relatório de Tarefas Não Concluídas</h3>
+                            <div class="bg-red-50 p-4 rounded-lg">
+                                <ul class="space-y-3">`;
+
+                    if (Object.keys(notDoneTasks).length > 0) {
+                        for (const [task, stores] of Object.entries(notDoneTasks)) {
+                            notDoneContent += `
+                                    <li class="text-sm">
+                                        <p class="font-semibold text-red-800">${task}</p>
+                                        <p class="text-slate-600 pl-2">Lojas: ${stores.join(', ')}</p>
+                                    </li>`;
+                        }
+                    } else {
+                        notDoneContent += '<p class="text-sm text-slate-500">Nenhuma tarefa marcada como "Não Feita" neste ciclo.</p>';
+                    }
+                    notDoneContent += '</ul></div></div>';
+                    content += notDoneContent;
+
+                    content += `</div>`;
+                    this.ui.viewContainer.innerHTML = content;
+
+                    this.ui.viewContainer.querySelector('#export-pdf-btn').addEventListener('click', () => this.exportReportAsPDF());
+                    this.ui.viewContainer.querySelectorAll('.post-detail-btn').forEach(btn => {
+                        btn.addEventListener('click', (e) => {
+                            const taskId = parseInt(e.currentTarget.dataset.taskId);
+                            this.openPostDetailModal(taskId);
+                        });
+                    });
+                },
+                
+                renderIdeias() {
+                    const tagColors = { 'Autoral': 'bg-blue-100 text-blue-800', 'Estratégica': 'bg-yellow-100 text-yellow-800' };
+                    let content = `<div class="bg-white rounded-2xl shadow-md p-6">
+                        <h2 class="text-2xl font-bold mb-4 text-slate-900">Banco de Ideias</h2>
+                        <p class="text-slate-600 mb-6">Organize suas ideias de conteúdo. Arraste os cartões entre as colunas.</p>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">`;
+
+                    const columns = { todo: 'Para Fazer', inprogress: 'Em Andamento', done: 'Concluídas' };
+                    for (const [key, title] of Object.entries(columns)) {
+                        content += `
+                            <div class="bg-slate-100 rounded-lg p-4">
+                                <h3 class="font-bold text-slate-800 mb-4">${title}</h3>
+                                <div class="kanban-column space-y-3" data-column="${key}">
+                                    ${this.data.ideaBank[key].map(idea => `
+                                    <div class="kanban-card relative bg-white p-3 rounded-md shadow" draggable="true" data-id="${idea.id}">
+                                        <button class="delete-idea-btn absolute top-1 right-1 text-slate-400 hover:text-red-500 w-6 h-6 rounded-full flex items-center justify-center transition-colors text-xl leading-none" data-id="${idea.id}">&times;</button>
+                                        <p class="pr-6 pb-4">${idea.text}</p>
+                                        <div class="flex justify-between items-end">
+                                            ${idea.tag ? `<span class="px-2 py-1 rounded-full text-xs font-semibold ${tagColors[idea.tag] || 'bg-slate-200'}">${idea.tag}</span>` : '<div></div>'}
+                                            <button class="promote-idea-btn text-slate-400 hover:text-sky-500 w-7 h-7 rounded-full flex items-center justify-center transition-colors bg-slate-100" title="Promover para Tarefa" data-id="${idea.id}">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                                            </button>
+                                        </div>
+                                    </div>`).join('')}
+                                </div>
+                                <div class="add-idea-form-container mt-2"></div>
+                                <button class="add-idea-btn mt-2 w-full bg-slate-200 hover:bg-slate-300 text-slate-700 text-sm font-bold py-2 px-2 rounded" data-column="${key}">+ Adicionar Ideia</button>
+                            </div>`;
+                    }
+
+                    content += `</div></div>`;
+                    this.ui.viewContainer.innerHTML = content;
+                    this.bindKanbanEvents();
+                },
+
+                bindKanbanEvents() {
+                    this.ui.viewContainer.querySelectorAll('.add-idea-btn').forEach(btn => {
+                        btn.addEventListener('click', (e) => {
+                            const column = e.target.dataset.column;
+                            const formContainer = e.target.previousElementSibling;
+                            formContainer.innerHTML = `
+                                <div class="bg-white p-2 rounded-md shadow space-y-2">
+                                    <textarea class="w-full text-sm p-2 rounded-md border-slate-300" placeholder="Sua ideia..."></textarea>
+                                    <select class="w-full text-sm p-2 rounded-md border-slate-300 bg-white">
+                                        <option value="">Sem Etiqueta</option><option value="Autoral">Autoral</option><option value="Estratégica">Estratégica</option>
+                                    </select>
+                                    <div class="flex gap-2">
+                                        <button class="save-idea-btn w-full bg-sky-500 text-white text-sm font-bold py-1 px-2 rounded">Salvar</button>
+                                        <button class="cancel-idea-btn w-full bg-slate-200 text-slate-700 text-sm font-bold py-1 px-2 rounded">Cancelar</button>
+                                    </div>
+                                </div>`;
+                            formContainer.querySelector('.save-idea-btn').onclick = () => {
+                                const text = formContainer.querySelector('textarea').value;
+                                const tag = formContainer.querySelector('select').value;
+                                if (text) {
+                                    const newIdea = { id: Date.now(), text, tag };
+                                    this.data.ideaBank[column].push(newIdea);
+                                    this.saveDataToLocalStorage();
+                                    this.renderIdeias();
+                                }
+                            };
+                            formContainer.querySelector('.cancel-idea-btn').onclick = () => formContainer.innerHTML = '';
+                        });
+                    });
+
+                     this.ui.viewContainer.querySelectorAll('.promote-idea-btn').forEach(btn => {
+                        btn.addEventListener('click', (e) => {
+                            const button = e.currentTarget;
+                            const ideaId = parseInt(button.dataset.id);
+                            
+                            let ideaToPromote = null;
+                            for (const column in this.data.ideaBank) {
+                                const foundIdea = this.data.ideaBank[column].find(i => i.id === ideaId);
+                                if (foundIdea) {
+                                    ideaToPromote = foundIdea;
+                                    break;
+                                }
+                            }
+                            
+                            if (!ideaToPromote) return;
+
+                            this.openManageModal();
+
+                            const tasksTextarea = this.ui.tasksInput;
+                            const today = new Date();
+                            const formattedDate = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}`;
+                            
+                            const tag = ideaToPromote.tag || 'Estratégica'; 
+                            const newTaskLine = `${formattedDate}, ${tag}, ${ideaToPromote.text}`;
+
+                            if (tasksTextarea.value.trim() !== '') {
+                                tasksTextarea.value += '\n' + newTaskLine;
+                            } else {
+                                tasksTextarea.value = newTaskLine;
+                            }
+
+                            tasksTextarea.scrollTop = tasksTextarea.scrollHeight;
+                            tasksTextarea.focus();
+                        });
+                    });
+
+                    this.ui.viewContainer.querySelectorAll('.kanban-card').forEach(card => {
+                        card.addEventListener('dragstart', (e) => {
+                            this.draggedIdea = e.target;
+                            setTimeout(() => e.target.classList.add('dragging'), 0);
+                        });
+                        card.addEventListener('dragend', (e) => {
+                            e.target.classList.remove('dragging');
+                            this.draggedIdea = null;
+                        });
+                    });
+
+                    this.ui.viewContainer.querySelectorAll('.kanban-column').forEach(column => {
+                        column.addEventListener('dragover', (e) => e.preventDefault());
+                        column.addEventListener('drop', (e) => {
+                            e.preventDefault();
+                            if (this.draggedIdea) {
+                                const targetColumnKey = e.currentTarget.dataset.column;
+                                const ideaId = parseInt(this.draggedIdea.dataset.id);
+                                let idea, sourceColumnKey;
+                                
+                                for (const [key, ideas] of Object.entries(this.data.ideaBank)) {
+                                    const foundIndex = ideas.findIndex(i => i.id === ideaId);
+                                    if (foundIndex > -1) {
+                                        [idea] = ideas.splice(foundIndex, 1);
+                                        sourceColumnKey = key;
+                                        break;
+                                    }
+                                }
+                                if (idea) {
+                                    this.data.ideaBank[targetColumnKey].push(idea);
+                                    this.saveDataToLocalStorage();
+                                    this.renderIdeias();
+                                }
+                            }
+                        });
+                    });
+
+                    this.ui.viewContainer.querySelectorAll('.delete-idea-btn').forEach(btn => {
+                        btn.addEventListener('click', (e) => {
+                            const ideaId = parseInt(e.currentTarget.dataset.id);
+                            for (const key in this.data.ideaBank) {
+                                const foundIndex = this.data.ideaBank[key].findIndex(i => i.id === ideaId);
+                                if (foundIndex > -1) {
+                                    this.data.ideaBank[key].splice(foundIndex, 1);
+                                    this.saveDataToLocalStorage();
+                                    this.renderIdeias();
+                                    break;
+                                }
+                            }
+                        });
+                    });
+                },
+
+                renderDashboardChart() {
+                    const cycle = this.getCurrentCycle();
+                    const reportData = this.calculatePerformanceData(cycle);
+                    const ctx = document.getElementById('dashboard-chart')?.getContext('2d');
+                    if (!ctx) return;
+                    if (this.chart) this.chart.destroy();
+                    this.chart = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: reportData.map(d => d.city),
+                            datasets: [{
+                                label: 'Pontuação de Desempenho',
+                                data: reportData.map(d => d.combinedScore),
+                                backgroundColor: '#38bdf8',
+                                borderColor: '#0ea5e9',
+                                borderWidth: 1,
+                                borderRadius: 5,
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            scales: { y: { beginAtZero: true, grid: { color: '#e2e8f0' } }, x: { grid: { display: false } } },
+                            plugins: { legend: { display: false } }
+                        }
+                    });
+                },
+                
+                openManageModal(isNew = false) {
+                    const cycle = this.getCurrentCycle();
+                    if (!cycle) return;
+                    this.ui.cycleNameInput.value = cycle.name;
+                    this.ui.citiesInput.value = cycle.cities.map(c => `${c.name}, ${c.followers}`).join('\n');
+                    this.ui.tasksInput.value = cycle.tasks.map(t => `${t.date}, ${t.category}, ${t.description}`).join('\n');
+                    this.ui.engagementGoalInput.value = cycle.engagementGoal || '';
+                    this.ui.qualityGoalInput.value = cycle.qualityGoal || '';
+                    this.ui.performanceGoalInput.value = cycle.performanceGoal || '';
+
+                    const engagementSuggestion = document.getElementById('engagement-goal-suggestion');
+                    const qualitySuggestion = document.getElementById('quality-goal-suggestion');
+                    const performanceSuggestion = document.getElementById('performance-goal-suggestion');
+
+                    if (isNew) {
+                        engagementSuggestion.textContent = '(sugestão com +10%)';
+                        qualitySuggestion.textContent = '(sugestão com +0.1)';
+                        performanceSuggestion.textContent = '(sugestão com +10%)';
+                    } else {
+                        engagementSuggestion.textContent = '';
+                        qualitySuggestion.textContent = '';
+                        performanceSuggestion.textContent = '';
+                    }
+
+                    this.ui.manageModal.classList.remove('hidden');
+                },
+                closeManageModal() { this.ui.manageModal.classList.add('hidden'); },
+                
+                openPostDetailModal(taskId) {
+                    const cycle = this.getCurrentCycle();
+                    const task = cycle.tasks[taskId];
+                    if (!task) return;
+
+                    let content = `<h3 class="font-bold text-lg mb-2">${task.description}</h3>`;
+                    content += '<ul class="space-y-2">';
+
+                    cycle.cities.forEach((city, cityIndex) => {
+                        const key = `${taskId}-${cityIndex}`;
+                        if (cycle.completionData[key]?.status === 'done') {
+                            const eng = cycle.completionData[key].engagement;
+                             content += `<li class="p-2 bg-slate-100 rounded-md">
+                                <p class="font-semibold">${city.name}</p>
+                                <p class="text-sm">❤️ ${eng.likes || 0} | 💬 ${eng.comments || 0} | ↪️ ${eng.shares || 0}</p>
+                            </li>`;
+                        }
+                    });
+                    content += '</ul>';
+                    
+                    this.ui.postDetailContent.innerHTML = content;
+                    this.ui.postDetailModal.classList.remove('hidden');
+                },
+                closePostDetailModal() {
+                    this.ui.postDetailModal.classList.add('hidden');
+                },
+                
+                openQualityModal(key) {
+                    this.currentQualityTarget = key;
+                    const cycle = this.getCurrentCycle();
+                    const [taskIndex, cityIndex] = key.split('-');
+                    const task = cycle.tasks[taskIndex];
+                    const city = cycle.cities[cityIndex];
+                    if (!cycle.completionData[key].quality) {
+                        cycle.completionData[key].quality = { qualidade: 0, edicao: 0, criatividade: 0, comunicacao: 0, notes: '' };
+                    }
+                    const qualityData = cycle.completionData[key].quality;
+
+                    this.ui.qualityModalSubtitle.textContent = `${task.description} - ${city.name}`;
+                    
+                    const qualityCriteria = ['Qualidade', 'Edição', 'Criatividade', 'Comunicação'];
+                    let content = `<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        ${qualityCriteria.map(criterion => {
+                            const criterionKey = criterion.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                            const rating = qualityData[criterionKey] || 0;
+                            return `<div>
+                                <p class="text-sm font-medium text-slate-600">${criterion}</p>
+                                <div class="star-rating mt-1" data-key="${key}" data-criterion="${criterionKey}">
+                                    ${[1,2,3,4,5].map(s => `<span data-value="${s}" class="${s <= rating ? 'active' : ''}">&#9733;</span>`).join('')}
+                                </div>
+                            </div>`;
+                        }).join('')}
+                    </div>
+                    <div class="mt-4">
+                        <textarea data-key="${key}" class="notes-textarea w-full text-sm p-2 rounded-md border-slate-300" placeholder="Adicionar anotações...">${qualityData.notes || ''}</textarea>
+                    </div>`;
+
+                    this.ui.qualityModalContent.innerHTML = content;
+
+                    this.ui.qualityModalContent.querySelectorAll('.star-rating').forEach(rating => {
+                        rating.addEventListener('click', (e) => {
+                            if (e.target.matches('span')) {
+                                const key = rating.dataset.key;
+                                const criterion = rating.dataset.criterion;
+                                const value = parseInt(e.target.dataset.value);
+                                cycle.completionData[key].quality[criterion] = value;
+                                this.saveDataToLocalStorage();
+                                rating.querySelectorAll('span').forEach((star, index) => {
+                                    star.classList.toggle('active', index < value);
+                                });
+                            }
+                        });
+                    });
+                    this.ui.qualityModalContent.querySelector('.notes-textarea').addEventListener('change', (e) => {
+                        const key = e.target.dataset.key;
+                        cycle.completionData[key].quality.notes = e.target.value;
+                        this.saveDataToLocalStorage();
+                    });
+
+                    this.ui.qualityModal.classList.remove('hidden');
+                },
+
+                closeQualityModal() {
+                    this.ui.qualityModal.classList.add('hidden');
+                    if(this.data.currentView === 'avaliacao-central'){
+                        this.renderAvaliacaoCentral();
+                    }
+                },
+
+                openEngagementModal(key) {
+                    this.currentEngagementTarget = key;
+                    const cycle = this.getCurrentCycle();
+                    const data = cycle.completionData[key]?.engagement || {};
+                    const [taskIndex, cityIndex] = key.split('-');
+                    this.ui.engagementSubtitle.textContent = `Tarefa: ${cycle.tasks[taskIndex].description} - Loja: ${cycle.cities[cityIndex].name}`;
+                    this.ui.likesInput.value = data.likes || '';
+                    this.ui.commentsInput.value = data.comments || '';
+                    this.ui.sharesInput.value = data.shares || '';
+                    this.ui.engagementModal.classList.remove('hidden');
+                },
+                closeEngagementModal() { 
+                    this.ui.engagementModal.classList.add('hidden');
+                    if(this.data.currentView === 'avaliacao-central'){
+                        this.renderAvaliacaoCentral();
+                    }
+                },
+
+                saveEngagement() {
+                    const key = this.currentEngagementTarget;
+                    if (!key) return;
+                    const cycle = this.getCurrentCycle();
+                    cycle.completionData[key].engagement = {
+                        likes: parseInt(this.ui.likesInput.value) || 0,
+                        comments: parseInt(this.ui.commentsInput.value) || 0,
+                        shares: parseInt(this.ui.sharesInput.value) || 0,
+                    };
+                    this.saveDataToLocalStorage();
+                    this.closeEngagementModal();
+                },
+
+                addCycle() {
+                    let suggestedEngagementGoal = 0;
+                    let suggestedQualityGoal = 0;
+                    let suggestedPerformanceGoal = 0;
+
+                    if (this.data.cycles.length > 0) {
+                        const previousCycle = this.data.cycles[this.data.cycles.length - 1];
+                        
+                        let totalEngagement = 0;
+                        for (const key in previousCycle.completionData) {
+                             if (previousCycle.completionData[key]?.status === 'done') {
+                                const eng = previousCycle.completionData[key].engagement;
+                                totalEngagement += (eng.likes || 0) * 1 + (eng.comments || 0) * 2 + (eng.shares || 0) * 3;
+                            }
+                        }
+                        if (totalEngagement > 0) {
+                             suggestedEngagementGoal = Math.ceil((totalEngagement * 1.1) / 100) * 100;
+                        }
+
+                        let totalQualitySum = 0;
+                        let totalQualityTasks = 0;
+                        for (const key in previousCycle.completionData) {
+                             if (previousCycle.completionData[key]?.status === 'done') {
+                                 const qual = previousCycle.completionData[key].quality;
+                                 if (qual && (qual.qualidade > 0 || qual.edicao > 0 || qual.criatividade > 0 || qual.comunicacao > 0)) {
+                                    totalQualitySum += (qual.qualidade + qual.edicao + qual.criatividade + qual.comunicacao) / 4;
+                                    totalQualityTasks++;
+                                 }
+                            }
+                        }
+                        const overallQualityAvg = totalQualityTasks > 0 ? (totalQualitySum / totalQualityTasks) : 0;
+                        if (overallQualityAvg > 0) {
+                            suggestedQualityGoal = Math.min(5, parseFloat((overallQualityAvg + 0.1).toFixed(1)));
+                        }
+
+                        const performanceData = this.calculatePerformanceData(previousCycle);
+                        if(performanceData.length > 0) {
+                            const totalPerformance = performanceData.reduce((sum, store) => sum + store.combinedScore, 0);
+                            const avgPerformance = totalPerformance / performanceData.length;
+                             suggestedPerformanceGoal = Math.ceil((avgPerformance * 1.1) / 100) * 100;
+                        }
+                    }
+
+                    const lastCycleName = this.data.cycles.length > 0 ? this.data.cycles[this.data.cycles.length - 1].name : "Ciclo 0 / 2025";
+                    const nameParts = lastCycleName.match(/(\d+)\s*\/\s*(\d{4})/);
+                    let nextMonth = new Date().getMonth() + 1;
+                    let nextYear = new Date().getFullYear();
+                    if(nameParts) {
+                        let lastMonth = parseInt(nameParts[1]);
+                        let lastYear = parseInt(nameParts[2]);
+                        nextMonth = lastMonth + 1;
+                        nextYear = lastYear;
+                        if (nextMonth > 12) {
+                            nextMonth = 1;
+                            nextYear++;
+                        }
+                    }
+
+                    const newCycleName = `Ciclo ${String(nextMonth).padStart(2, '0')} / ${nextYear}`;
+                    const previousCycle = this.data.cycles.length > 0 ? this.data.cycles[this.data.cycles.length - 1] : null;
+
+                    const newCycle = { 
+                        name: newCycleName, 
+                        cities: previousCycle ? JSON.parse(JSON.stringify(previousCycle.cities)) : [{name: "Nova Loja", followers: 0}], 
+                        tasks: [], 
+                        completionData: {}, 
+                        dailyEvaluationData: {},
+                        engagementGoal: suggestedEngagementGoal,
+                        qualityGoal: suggestedQualityGoal,
+                        performanceGoal: suggestedPerformanceGoal,
+                    };
+                    this.data.cycles.push(newCycle);
+                    this.data.currentCycleIndex = this.data.cycles.length - 1;
+                    this.saveDataToLocalStorage();
+                    this.render();
+                    this.openManageModal(true);
+                },
+
+                saveCycle() {
+                    const cycle = this.getCurrentCycle();
+                    cycle.name = this.ui.cycleNameInput.value.trim();
+                    cycle.cities = this.ui.citiesInput.value.split('\n').map(line => {
+                        const parts = line.split(',');
+                        if (parts.length < 2) return null;
+                        const name = parts[0].trim();
+                        const followers = parseInt(parts[1].trim()) || 0;
+                        return { name, followers };
+                    }).filter(Boolean);
+                    
+                    cycle.tasks = this.ui.tasksInput.value.split('\n').map(line => {
+                        const parts = line.split(',');
+                        if (parts.length < 3) return null;
+                        return { date: parts[0].trim(), category: parts[1].trim(), description: parts.slice(2).join(',').trim() };
+                    }).filter(Boolean);
+
+                    cycle.engagementGoal = parseInt(this.ui.engagementGoalInput.value) || 0;
+                    cycle.qualityGoal = parseFloat(this.ui.qualityGoalInput.value) || 0;
+                    cycle.performanceGoal = parseInt(this.ui.performanceGoalInput.value) || 0;
+                    
+                    const newCompletionData = {};
+                    for (const key in cycle.completionData) {
+                        const [taskIndex, cityIndex] = key.split('-').map(Number);
+                        if (taskIndex < cycle.tasks.length && cityIndex < cycle.cities.length) {
+                            newCompletionData[key] = cycle.completionData[key];
+                        }
+                    }
+                    cycle.completionData = newCompletionData;
+                    
+                    this.saveDataToLocalStorage();
+                    this.closeManageModal();
+                    this.render();
+                },
+                
+                deleteCycle() {
+                    if (this.data.cycles.length > 1 && confirm(`Tem certeza que deseja excluir o ciclo "${this.getCurrentCycle().name}"?`)) {
+                        this.data.cycles.splice(this.data.currentCycleIndex, 1);
+                        this.data.currentCycleIndex = Math.max(0, this.data.currentCycleIndex - 1);
+                        this.saveDataToLocalStorage();
+                        this.closeManageModal();
+                        this.render();
+                    } else if (this.data.cycles.length <= 1) {
+                        alert("Não é possível excluir o último ciclo.");
+                    }
+                },
+
+                exportData() {
+                    const dataStr = JSON.stringify(this.data, null, 2);
+                    const blob = new Blob([dataStr], {type: "application/json"});
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `dados_controle_conteudo.json`;
+                    link.click();
+                    URL.revokeObjectURL(url);
+                },
+
+                importData(event) {
+                    const file = event.target.files[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        try {
+                            const importedData = JSON.parse(e.target.result);
+                            if (importedData.cycles && Array.isArray(importedData.cycles)) {
+                                this.data = importedData;
+                                this.data.currentCycleIndex = 0;
+                                this.saveDataToLocalStorage();
+                                this.render();
+                            } else {
+                                alert("Arquivo JSON inválido.");
+                            }
+                        } catch (error) {
+                            alert("Erro ao ler o arquivo.");
+                        }
+                    };
+                    reader.readText(file);
+                    this.closeManageModal();
+                },
+                
+                exportAsHTML() {
+                    const docClone = document.documentElement.cloneNode(true);
+                    
+                    const passwordModal = docClone.getElementById('password-modal');
+                    if (passwordModal) passwordModal.remove();
+                    const appContainer = docClone.getElementById('app-container');
+                    if (appContainer) appContainer.classList.remove('hidden');
+
+                    const scriptTag = docClone.querySelector('script:not([src])');
+                    if (!scriptTag) {
+                        alert("Não foi possível encontrar o script principal para salvar.");
+                        return;
+                    }
+                    
+                    const preloadedDataScript = `const __preloadedData = ${JSON.stringify(this.data)};\n`;
+                    
+                    let scriptContent = scriptTag.innerHTML;
+
+                    const passwordLogicRegex = /\/\/ --- Password Protection Logic ---[\s\S]*\)\(\);/;
+                    
+                    if (passwordLogicRegex.test(scriptContent)) {
+                        scriptContent = scriptContent.replace(passwordLogicRegex, `
+            app.init();
+        })();`);
+                    } else {
+                        alert("Erro ao tentar remover a proteção por senha do arquivo exportado.");
+                        return;
+                    }
+
+                    scriptTag.innerHTML = preloadedDataScript + scriptContent;
+
+                    const fullHtml = '<!DOCTYPE html>\n' + docClone.outerHTML;
+                    const blob = new Blob([fullHtml], { type: 'text/html' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.download = 'painel_de_controle.html';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                },
+
+                exportReportAsPDF() {
+                    const { jsPDF } = window.jspdf;
+                    const doc = new jsPDF();
+                    const cycle = this.getCurrentCycle();
+
+                    const reportData = this.calculatePerformanceData(cycle);
+
+                    const tableColumn = ["Posição", "Loja", "Pontuação Final", "Aval. Diária", "Qualid. Posts", "Engaj. (Bruto)"];
+                    const tableRows = [];
+
+                    reportData.forEach((item, index) => {
+                        const rowData = [
+                            index + 1,
+                            item.city,
+                            item.combinedScore,
+                            item.dailyEvalAvg,
+                            item.avgQuality,
+                            item.engScore
+                        ];
+                        tableRows.push(rowData);
+                    });
+
+                    doc.setFontSize(18);
+                    doc.text("Relatório de Desempenho", 14, 22);
+                    doc.setFontSize(12);
+                    doc.text(`Ciclo: ${cycle.name}`, 14, 30);
+
+                    doc.autoTable({
+                        head: [tableColumn],
+                        body: tableRows,
+                        startY: 35,
+                    });
+                    
+                    let finalY = doc.autoTable.previous.finalY;
+
+                    const notDoneTasks = {};
+                    cycle.tasks.forEach((task, taskIndex) => {
+                        const stores = [];
+                        cycle.cities.forEach((city, cityIndex) => {
+                            const key = `${taskIndex}-${cityIndex}`;
+                            if (cycle.completionData[key]?.status === 'not_done') {
+                                stores.push(city.name);
+                            }
+                        });
+                        if (stores.length > 0) {
+                            notDoneTasks[task.description] = stores;
+                        }
+                    });
+
+                    if (Object.keys(notDoneTasks).length > 0) {
+                        if (finalY > doc.internal.pageSize.height - 60) {
+                            doc.addPage();
+                            finalY = 20;
+                        }
+                        doc.setFontSize(14);
+                        doc.text("Tarefas Não Concluídas", 14, finalY + 15);
+                        const notDoneTableColumn = ["Tarefa", "Lojas"];
+                        const notDoneTableRows = [];
+                        for (const [task, stores] of Object.entries(notDoneTasks)) {
+                            notDoneTableRows.push([task, stores.join(', ')]);
+                        }
+                        doc.autoTable({
+                            head: [notDoneTableColumn], body: notDoneTableRows, startY: finalY + 20,
+                            headStyles: { fillColor: [239, 68, 68] },
+                        });
+                        finalY = doc.autoTable.previous.finalY;
+                    }
+
+                    // --- INÍCIO DA SEÇÃO DE FEEDBACK ---
+                    const dailyNotes = [];
+                    cycle.cities.forEach((city, cityIndex) => {
+                        const notes = cycle.dailyEvaluationData?.[cityIndex]?.notes;
+                        if (notes && notes.trim()) {
+                            dailyNotes.push({ city: city.name, notes: notes.trim() });
+                        }
+                    });
+
+                    const qualityFeedback = {};
+                    cycle.cities.forEach((city, cityIndex) => {
+                        const feedbacks = [];
+                        cycle.tasks.forEach((task, taskIndex) => {
+                            const key = `${taskIndex}-${cityIndex}`;
+                            const completion = cycle.completionData[key];
+                            if (completion?.status === 'done' && completion.quality?.notes?.trim()) {
+                                feedbacks.push({
+                                    task: `${task.date} - ${task.description}`,
+                                    notes: completion.quality.notes.trim()
+                                });
+                            }
+                        });
+                        if (feedbacks.length > 0) {
+                            qualityFeedback[city.name] = feedbacks;
+                        }
+                    });
+                    
+                    if (dailyNotes.length > 0 || Object.keys(qualityFeedback).length > 0) {
+                        doc.addPage();
+                        let currentY = 22;
+                        doc.setFontSize(18);
+                        doc.text("Feedbacks e Observações", 14, currentY);
+                        currentY += 15;
+
+                        if (dailyNotes.length > 0) {
+                            doc.setFontSize(14);
+                            doc.text("Observações da Avaliação Diária", 14, currentY);
+                            currentY += 8;
+
+                            dailyNotes.forEach(item => {
+                                if (currentY > doc.internal.pageSize.height - 30) { doc.addPage(); currentY = 22; }
+                                doc.setFontSize(12);
+                                doc.setFont(undefined, 'bold');
+                                doc.text(item.city, 14, currentY);
+                                currentY += 6;
+                                doc.setFont(undefined, 'normal');
+                                doc.setFontSize(10);
+                                const notesLines = doc.splitTextToSize(item.notes, 180);
+                                doc.text(notesLines, 14, currentY);
+                                currentY += (notesLines.length * 4.5) + 8;
+                            });
+                        }
+
+                        if (Object.keys(qualityFeedback).length > 0) {
+                            if (currentY > 40) currentY += 5;
+                            if (currentY > doc.internal.pageSize.height - 40) { doc.addPage(); currentY = 22; }
+
+                            doc.setFontSize(14);
+                            doc.text("Feedback Individual de Qualidade dos Posts", 14, currentY);
+                            currentY += 8;
+
+                            for (const [city, feedbacks] of Object.entries(qualityFeedback)) {
+                                const tableBody = feedbacks.map(fb => [fb.task, fb.notes]);
+                                if (currentY > doc.internal.pageSize.height - 30) { doc.addPage(); currentY = 22; }
+                                
+                                doc.autoTable({
+                                    head: [[{ content: city, colSpan: 2, styles: { halign: 'left', fillColor: [100, 116, 139], fontStyle: 'bold' } }]],
+                                    body: tableBody,
+                                    startY: currentY,
+                                    theme: 'striped',
+                                    columnStyles: { 0: { cellWidth: 70 }, 1: { cellWidth: 'auto' } },
+                                    styles: { cellPadding: 2, fontSize: 9 },
+                                });
+                                currentY = doc.autoTable.previous.finalY + 10;
+                            }
+                        }
+                    }
+                    // --- FIM DA SEÇÃO DE FEEDBACK ---
+
+                    doc.save(`Relatorio_${cycle.name.replace(/[/ ]/g, '_')}.pdf`);
+                }
+            };
+
+            // --- Password Protection Logic ---
+            const passwordModal = document.getElementById('password-modal');
+            const passwordInput = document.getElementById('password-input');
+            const passwordSubmitBtn = document.getElementById('password-submit-btn');
+            const passwordError = document.getElementById('password-error');
+            const appContainer = document.getElementById('app-container');
+
+            const correctPassword = 'gabi2002';
+
+            function checkPassword() {
+                if (passwordInput.value === correctPassword) {
+                    passwordModal.classList.add('hidden');
+                    appContainer.classList.remove('hidden');
+                    // Inicia a aplicação principal
+                    app.init();
+                } else {
+                    passwordError.textContent = 'Senha incorreta. Tente novamente.';
+                    passwordInput.value = '';
+                    passwordInput.focus();
+                }
+            }
+
+            passwordSubmitBtn.addEventListener('click', checkPassword);
+            passwordInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    checkPassword();
+                }
+            });
+            
+            passwordInput.focus();
+        })();
+    </script>
+</body>
+</html>
+
